@@ -1,0 +1,10 @@
+# Ignore raw telemetry data files
+*.json
+*.csv
+*.xml
+raw_logs/
+data/
+
+# Ignore local Python cache files
+__pycache__/
+*.pyc
