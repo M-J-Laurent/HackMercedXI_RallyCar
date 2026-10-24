@@ -1,0 +1,21 @@
+{
+  "steer_sign": -1,
+  "glat_sign": 1,
+  "rpm_scale": 10,
+  "reverse_gear_values": [
+    10,
+    -1
+  ],
+  "verified": true,
+  "wheel_left_right_ok": true,
+  "xz_heading_sign_for_left_turn": -1,
+  "raw_gear_values_seen": [
+    -1,
+    0,
+    1,
+    2,
+    3,
+    4
+  ],
+  "source_file": "dat\\raw\\raw_20261024_154148.csv"
+}
