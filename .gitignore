@@ -1,10 +1,14 @@
-# Ignore raw telemetry data files
-*.json
-*.csv
-*.xml
-raw_logs/
-data/
+# Virtual environment
+.venv/
+venv/
 
-# Ignore local Python cache files
+# Python
 __pycache__/
 *.pyc
+
+# Local team notes, not part of the repo
+CONTEXT.md
+
+# Generated artifacts (regenerate with build_dataset.py / train.py)
+dat/synthetic/
+models/
