@@ -6,6 +6,9 @@ venv/
 __pycache__/
 *.pyc
 
+# Local team notes, not part of the repo
+CONTEXT.md
+
 # Generated artifacts (regenerate with build_dataset.py / train.py)
 dat/synthetic/
 models/
