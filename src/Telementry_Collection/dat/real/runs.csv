@@ -1,2 +1,5 @@
 file,stage,car,type,notes
 stage1_sloppy_01.csv,Te Awanga Sprint Forward,Subaru Impreza 1995,sloppy,spun out ~3420 m (oversteer); full stage 4:07.5
+stage1_clean_01.csv,Te Awanga Sprint Forward,Subaru Impreza 1995,clean,4:15.3; small slide/slow at ~2180 m
+stage1_sloppy_02.csv,Te Awanga Sprint Forward,Subaru Impreza 1995,sloppy,4:04.6; braked too late + slide ~440-470 m (83 km/h in; down to 11 km/h); braked too late ~3060-3110 m (115 km/h in; down to 28 km/h); near stop ~3930 m (6 km/h); slide/slow ~4500-4540 m (down to 24 km/h)
+stage1_clean_02.csv,Te Awanga Sprint Forward,Subaru Impreza 1995,clean (REFERENCE),3:50.2; fastest run; no spins or reverse; brief slide ~442 m; slow spots ~3930 m (25 km/h) and ~4672 m (22 km/h)
