@@ -16,7 +16,7 @@ import numpy as np
 import pandas as pd
 
 from anomalyDetection.generation.real_augment import load_lap, make_real_run
-from anomalyDetection.schema import RUN_ID, TELEMETRY_COLUMNS, TRACK_ID
+from anomalyDetection.schema import EXTRA_CHANNELS, RUN_ID, TELEMETRY_COLUMNS, TRACK_ID
 
 REPO = Path(__file__).resolve().parents[3]
 
@@ -50,7 +50,7 @@ def main():
         runs.append(df)
         faults[rid] = meta
 
-    refdf = ref[TELEMETRY_COLUMNS].copy()
+    refdf = ref[TELEMETRY_COLUMNS + [c for c in EXTRA_CHANNELS if c in ref.columns]].copy()
     refdf.insert(0, TRACK_ID, "real")
     a.out.mkdir(parents=True, exist_ok=True)
     refdf.round(4).to_csv(a.out / "references.csv", index=False)

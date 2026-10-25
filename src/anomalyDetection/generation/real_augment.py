@@ -14,7 +14,7 @@ from anomalyDetection.generation.createTelemetrydat import smooth_noise
 from anomalyDetection.generation.physics import G, CarParams
 from anomalyDetection.resample import resample_to_grid
 from anomalyDetection.schema import (
-    CHANNELS, DIST, FAULT_LABELS, GRID_STEP_M, LABEL_COL, NORMAL, TELEMETRY_COLUMNS, WHEELS,
+    CHANNELS, DIST, EXTRA_CHANNELS, FAULT_LABELS, GRID_STEP_M, LABEL_COL, NORMAL, TELEMETRY_COLUMNS, WHEELS,
 )
 
 DS = GRID_STEP_M
@@ -64,7 +64,7 @@ def blend(a: pd.DataFrame, b: pd.DataFrame, alpha: np.ndarray) -> pd.DataFrame:
     n = min(len(a), len(b))
     a, b, alpha = a.iloc[:n].reset_index(drop=True), b.iloc[:n].reset_index(drop=True), alpha[:n]
     out = a.copy()
-    for c in BLENDED:
+    for c in [c for c in BLENDED + EXTRA_CHANNELS if c in a.columns]:
         out[c] = a[c] * (1 - alpha) + b[c] * alpha
     out["gear"] = np.where(alpha < 0.5, a["gear"], b["gear"])
     return out
@@ -73,7 +73,7 @@ def blend(a: pd.DataFrame, b: pd.DataFrame, alpha: np.ndarray) -> pd.DataFrame:
 def shift_distance(df: pd.DataFrame, delta_m: float) -> pd.DataFrame:
     """Same lap but sampled delta_m further along: a different line / timing offset."""
     out, s = df.copy(), df[DIST].to_numpy()
-    for c in CHANNELS:
+    for c in CHANNELS + [e for e in EXTRA_CHANNELS if e in df.columns]:
         out[c] = np.interp(s + delta_m, s, df[c].to_numpy())
     return out
 
@@ -146,7 +146,7 @@ def inject_real_faults(lap: pd.DataFrame, rng: np.random.Generator, n_faults: in
             pre, post = apex - i0 + 1, i1 - apex + 1
             ratio[i0:apex + 1] *= 1 + up * smoothstep(pre)
             ratio[apex:i1 + 1] *= 1 - dep * bump(post)
-            e.update(depth=dep, brake=None, apex=apex, post=bump(post) * rng.uniform(0.5, 1.0))
+            e.update(depth=dep, brake=None, apex=apex, post=bump(post) * rng.uniform(0.5, 1.0), slip_add=rng.uniform(10, 30))
         elif label == "lifted_mid_corner":
             d = rng.uniform(0.07, 0.15)
             ratio[sl] *= 1 - d * w
@@ -158,7 +158,8 @@ def inject_real_faults(lap: pd.DataFrame, rng: np.random.Generator, n_faults: in
         elif label == "oversteer":
             d = rng.uniform(0.08, 0.3)
             ratio[sl] *= 1 - d * w
-            e.update(depth=d, slip=rng.uniform(0.08, 0.25), counter=rng.uniform(0.3, 0.7))
+            e.update(depth=d, slip=rng.uniform(0.08, 0.25), counter=rng.uniform(0.3, 0.7),
+                     slip_add=rng.uniform(15, 45), yaw_add=rng.uniform(40, 120), ws=rng.uniform(0.2, 0.8))
         elif label == "understeer":
             d = rng.uniform(0.05, 0.15)
             ratio[sl] *= 1 - d * w
@@ -167,11 +168,12 @@ def inject_real_faults(lap: pd.DataFrame, rng: np.random.Generator, n_faults: in
             d = rng.uniform(0.85, 0.97)
             ratio[sl] *= 1 - d * w
             e.update(depth=d, amp=rng.uniform(0.4, 0.7), g=rng.uniform(0.8, 1.4),
-                     freq=int(rng.choice([1, 2])), gap=rng.uniform(2, 9))
+                     freq=int(rng.choice([1, 2])), gap=rng.uniform(2, 9),
+                     slip_amp=rng.uniform(100, 170), yaw_amp=rng.uniform(150, 300), ws=rng.uniform(1, 3))
         elif label == "reversing":
             d = rng.uniform(0.9, 0.99)
             ratio[sl] *= 1 - d * w
-            e.update(depth=d, gap=rng.uniform(2, 8))
+            e.update(depth=d, gap=rng.uniform(2, 8), back=rng.uniform(150, 180))
         else:
             e.update(depth=1.0, offset=int(rng.choice([-1, 1])))
         steer =lap["steer"].to_numpy()[max(apex - m(10), 0):apex + m(10) + 1]
@@ -220,6 +222,29 @@ def inject_real_faults(lap: pd.DataFrame, rng: np.random.Generator, n_faults: in
             out.iloc[sl, col("gear")] = np.where(ok, g1, g0)
             out.iloc[sl, col("rpm")] = out["rpm"].iloc[sl] * scale
 
+    if "slip_angle_deg" in out.columns:
+        wrap = lambda a: (a + 180) % 360 - 180
+        for e in edits:
+            sl, w, lab, sg = slice(e["i0"], e["i1"] + 1), e["w"], e["label"], e["sign"]
+            col = out.columns.get_loc
+            if lab == "oversteer":      # rear steps out: nose rotates into the corner, rear wheels spin
+                out.iloc[sl, col("slip_angle_deg")] = wrap(out["slip_angle_deg"].iloc[sl] + sg * e["slip_add"] * w)
+                out.iloc[sl, col("yaw_rate_dps")] = out["yaw_rate_dps"].iloc[sl] + sg * e["yaw_add"] * w
+                out.iloc[sl, col("wheelspin_rear")] = out["wheelspin_rear"].iloc[sl] + e["ws"] * w
+            elif lab == "understeer":   # fronts push wide: nose points less into the corner than normal
+                out.iloc[sl, col("slip_angle_deg")] = out["slip_angle_deg"].iloc[sl] * (1 - 0.5 * w)
+                out.iloc[sl, col("yaw_rate_dps")] = out["yaw_rate_dps"].iloc[sl] * (1 - 0.3 * w)
+            elif lab == "spinout":      # car rotates through 90-180 degrees
+                out.iloc[sl, col("slip_angle_deg")] = wrap(out["slip_angle_deg"].iloc[sl] + sg * e["slip_amp"] * w)
+                out.iloc[sl, col("yaw_rate_dps")] = out["yaw_rate_dps"].iloc[sl] + sg * e["yaw_amp"] * w
+                out.iloc[sl, col("wheelspin_rear")] = out["wheelspin_rear"].iloc[sl] + e["ws"] * w
+            elif lab == "reversing":    # facing backwards relative to travel
+                out.iloc[sl, col("slip_angle_deg")] = np.where(w > 0.6, sg * e["back"], out["slip_angle_deg"].iloc[sl])
+            elif lab == "braked_too_late":  # overshoots and slides after the apex
+                a = e["apex"]
+                post = bump(e["i1"] - a + 1)
+                out.iloc[a:e["i1"] + 1, col("slip_angle_deg")] = wrap(out["slip_angle_deg"].iloc[a:e["i1"] + 1] + sg * e["slip_add"] * post)
+
     labels = np.full(n, NORMAL, dtype=object)
     for e in edits:
         labels[e["i0"]:e["i1"] + 1] = e["label"]
@@ -233,6 +258,6 @@ def make_real_run(clean_laps: list[pd.DataFrame], rng: np.random.Generator, n_fa
     """One training run: natural-variation clean lap with n_faults labelled mistakes."""
     lap = make_normal_variant(clean_laps, rng)
     out, labels, meta = inject_real_faults(lap, rng, n_faults)
-    out = out[TELEMETRY_COLUMNS].copy()
+    out = out[TELEMETRY_COLUMNS + [c for c in EXTRA_CHANNELS if c in out.columns]].copy()
     out[LABEL_COL] = labels
     return out, meta

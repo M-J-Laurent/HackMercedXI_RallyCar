@@ -44,6 +44,9 @@ def score_run(run: pd.DataFrame, ref: pd.DataFrame, bundle: dict):
     """The expensive part of detect(): features + model. Reuse it to try several thresholds."""
     X, meta = build_features(run, ref, bundle.get("stage_map"))
     r, q = resample_to_grid(run).iloc[:len(X)], resample_to_grid(ref).iloc[:len(X)]
+    missing = [c for c in bundle["feature_names"] if c not in X.columns]
+    if missing:  # e.g. a lap exported without slip angle: those features read as 0
+        X = pd.concat([X, pd.DataFrame(0.0, index=X.index, columns=missing, dtype="float32")], axis=1)
     return X, meta, r, q, bundle["model"].predict_proba(X[bundle["feature_names"]])
 
 

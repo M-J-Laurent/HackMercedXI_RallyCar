@@ -25,6 +25,12 @@ CHANNELS = [
 ]
 TELEMETRY_COLUMNS = [DIST, *CHANNELS]
 
+# Optional extras exported by the real-data converter. Used when present, never required.
+#   slip_angle_deg   angle between the nose and the direction of travel, positive = left (same sign as g_lat)
+#   yaw_rate_dps     rotation speed, positive = rotating left
+#   wheelspin_*      axle wheel speed / car speed - 1 (positive = spinning, negative = locking)
+EXTRA_CHANNELS = ["slip_angle_deg", "yaw_rate_dps", "wheelspin_front", "wheelspin_rear"]
+
 # Columns that only exist in generated / labelled datasets.
 TRACK_ID = "track_id"
 RUN_ID = "run_id"

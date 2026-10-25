@@ -45,6 +45,7 @@ def main():
     p.add_argument("--model-dir", type=Path, default=REPO / "models")
     p.add_argument("--backend", choices=["lightgbm", "xgboost"], default="lightgbm")
     p.add_argument("--seed", type=int, default=0)
+    p.add_argument("--no-extras", action="store_true", help="ignore slip angle / yaw rate / wheelspin columns")
     p.add_argument("--stage-map", type=Path, help="stage map JSON: adds corner-context features")
     p.add_argument("--split-by", choices=[TRACK_ID, RUN_ID], default=TRACK_ID,
                    help="use run_id when all runs come from one stage (real-lap data)")
@@ -54,7 +55,8 @@ def main():
     stage_map = load_stage_map(a.stage_map) if a.stage_map else None
     meta_file = a.data / "meta.json"
     offset = json.loads(meta_file.read_text())["offset_m"] if meta_file.exists() else 0.0
-    X, y, meta = build_table(runs, refs, stage_map=stage_map, dist_offset=offset)
+    X, y, meta = build_table(runs, refs, stage_map=stage_map, dist_offset=offset,
+                            use_extras=not a.no_extras)
     groups = meta[a.split_by]
 
     # 70 / 15 / 15 by track so no stage appears in more than one split

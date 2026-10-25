@@ -55,6 +55,11 @@ Honest testing: build with `--range 0 2400` and `--range 2400 4800` into separat
 and score each on the half it never saw (`evaluate_real --holdout`). The in-sample accuracy printed by `train.py`
 on this data is meaningless because every variant comes from the same two laps.
 
+The real-data CSVs carry extra columns (`slip_angle_deg`, `yaw_rate_dps`, `wheelspin_front/rear`; see `schema.EXTRA_CHANNELS`).
+When present they become features, and `real_augment.py` edits them when injecting oversteer, understeer, spinouts and
+reversing (so a spin shows 100-180 degrees of slip, as in the real laps). On the half-stage test this halved false flags
+with the same recall; `train.py --no-extras` turns them off. A lap without them still works (those features read 0).
+
 `training/rules.py` adds a rule layer on top of the model: an engine stall (rpm under 600) after a hard stop marks
 a crash or spin, and a 4 g deceleration with no braking marks a collision. These events are merged into the
 model's segments in `infer.py` (`source: rule`, `rule+model` or `model`). The 600 rpm and 4 g thresholds came from

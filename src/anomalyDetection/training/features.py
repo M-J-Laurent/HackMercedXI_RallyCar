@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 
 from anomalyDetection.resample import resample_to_grid
-from anomalyDetection.schema import DIST, LABEL_COL, LABELS, RUN_ID, TRACK_ID
+from anomalyDetection.schema import DIST, EXTRA_CHANNELS, LABEL_COL, LABELS, RUN_ID, TRACK_ID
 from anomalyDetection.stage_map import map_features
 
 DELTA_CHANNELS = ["speed", "throttle", "brake", "steer", "g_lat", "g_long", "rpm", "gear"]
@@ -22,7 +22,7 @@ def _rear_front(d: pd.DataFrame) -> np.ndarray:
 
 
 def build_features(run: pd.DataFrame, ref: pd.DataFrame, stage_map: dict | None = None,
-                   dist_offset: float = 0.0) -> tuple[pd.DataFrame, pd.DataFrame]:
+                   dist_offset: float = 0.0, use_extras: bool = True) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Returns (features, meta). meta holds lap_distance (and nothing label-related).
 
     With a stage_map, corner context is added. dist_offset converts a cropped lap's distance back
@@ -60,8 +60,21 @@ def build_features(run: pd.DataFrame, ref: pd.DataFrame, stage_map: dict | None 
         f[f"d_dt_sum{w}"] = f["d_dt"].rolling(w, center=True, min_periods=1).sum()
     f["gear_zero"] = (r["gear"] == 0).astype(float)
 
+    windowed = list(WINDOWED)
+    if use_extras and all(c in r.columns and c in q.columns for c in EXTRA_CHANNELS):
+        # slide angle, rotation and wheelspin: how far from the reference's driving, and how violent
+        f["slip"], f["abs_slip"] = r["slip_angle_deg"], r["slip_angle_deg"].abs()
+        f["d_slip"] = r["slip_angle_deg"] - q["slip_angle_deg"]
+        f["d_abs_slip"] = f["abs_slip"] - q["slip_angle_deg"].abs()
+        f["yaw"], f["d_yaw"] = r["yaw_rate_dps"], r["yaw_rate_dps"] - q["yaw_rate_dps"]
+        f["ws_rear"], f["ws_front"] = r["wheelspin_rear"], r["wheelspin_front"]
+        f["d_ws_rear"] = r["wheelspin_rear"] - q["wheelspin_rear"]
+        f["d_ws_front"] = r["wheelspin_front"] - q["wheelspin_front"]
+        f["slip_per_g"] = r["slip_angle_deg"] / (r["g_lat"].abs() + 0.3) * np.sign(r["g_lat"])  # slide beyond what the corner needs
+        windowed += ["abs_slip", "d_slip", "d_abs_slip", "d_yaw", "d_ws_rear", "d_ws_front", "slip_per_g"]
+
     extra = {}
-    for c in WINDOWED:
+    for c in windowed:
         for w in WINDOWS:
             roll = f[c].rolling(w, center=True, min_periods=1)
             extra[f"{c}_m{w}"] = roll.mean()
@@ -75,7 +88,8 @@ def build_features(run: pd.DataFrame, ref: pd.DataFrame, stage_map: dict | None 
     return f, pd.DataFrame({DIST: r[DIST].to_numpy()})
 
 
-def build_table(runs: pd.DataFrame, refs: pd.DataFrame, track_ids=None, stage_map=None, dist_offset=0.0):
+def build_table(runs: pd.DataFrame, refs: pd.DataFrame, track_ids=None, stage_map=None, dist_offset=0.0,
+                use_extras: bool = True):
     """Features + integer labels + meta for every run in a runs.csv-style frame."""
     label_idx = {l: i for i, l in enumerate(LABELS)}
     ref_by_track = {t: g for t, g in refs.groupby(TRACK_ID)}
@@ -83,7 +97,7 @@ def build_table(runs: pd.DataFrame, refs: pd.DataFrame, track_ids=None, stage_ma
     for (tid, rid), g in runs.groupby([TRACK_ID, RUN_ID], sort=False):
         if track_ids is not None and tid not in track_ids:
             continue
-        X, meta = build_features(g, ref_by_track[tid], stage_map, dist_offset)
+        X, meta = build_features(g, ref_by_track[tid], stage_map, dist_offset, use_extras)
         # runs are generated on the same grid, so labels line up by position
         y = g[LABEL_COL].map(label_idx).to_numpy()[:len(X)]
         meta[TRACK_ID], meta[RUN_ID] = tid, rid
