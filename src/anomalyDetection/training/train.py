@@ -13,6 +13,7 @@ from sklearn.model_selection import GroupShuffleSplit
 from sklearn.utils.class_weight import compute_sample_weight
 
 from anomalyDetection.schema import LABELS, RUN_ID, TRACK_ID
+from anomalyDetection.stage_map import load_stage_map
 from anomalyDetection.training.evaluate import evaluate
 from anomalyDetection.training.features import build_table
 
@@ -44,12 +45,16 @@ def main():
     p.add_argument("--model-dir", type=Path, default=REPO / "models")
     p.add_argument("--backend", choices=["lightgbm", "xgboost"], default="lightgbm")
     p.add_argument("--seed", type=int, default=0)
+    p.add_argument("--stage-map", type=Path, help="stage map JSON: adds corner-context features")
     p.add_argument("--split-by", choices=[TRACK_ID, RUN_ID], default=TRACK_ID,
                    help="use run_id when all runs come from one stage (real-lap data)")
     a = p.parse_args()
 
     runs, refs = pd.read_csv(a.data / "runs.csv"), pd.read_csv(a.data / "references.csv")
-    X, y, meta = build_table(runs, refs)
+    stage_map = load_stage_map(a.stage_map) if a.stage_map else None
+    meta_file = a.data / "meta.json"
+    offset = json.loads(meta_file.read_text())["offset_m"] if meta_file.exists() else 0.0
+    X, y, meta = build_table(runs, refs, stage_map=stage_map, dist_offset=offset)
     groups = meta[a.split_by]
 
     # 70 / 15 / 15 by track so no stage appears in more than one split
@@ -66,7 +71,8 @@ def main():
     fit(a.backend, model, X.iloc[tr], y[tr], w, X.iloc[va], y[va])
 
     a.model_dir.mkdir(parents=True, exist_ok=True)
-    bundle = {"model": model, "labels": LABELS, "feature_names": list(X.columns), "backend": a.backend}
+    bundle = {"model": model, "labels": LABELS, "feature_names": list(X.columns), "backend": a.backend,
+              "stage_map": stage_map}
     joblib.dump(bundle, a.model_dir / "anomaly_model.joblib")
     split = {k: sorted(groups.iloc[i].unique().tolist()) for k, i in (("train", tr), ("val", va), ("test", test))}
     (a.model_dir / "split.json").write_text(json.dumps(split, indent=1))

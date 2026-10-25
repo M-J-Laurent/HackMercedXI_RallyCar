@@ -57,6 +57,7 @@ def main():
     runs = pd.concat(runs)
     runs.round(4).to_csv(a.out / "runs.csv", index=False)
     (a.out / "faults.json").write_text(json.dumps(faults, indent=1))
+    (a.out / "meta.json").write_text(json.dumps({"offset_m": crop[0] if crop else 0.0}))  # cropped laps are re-zeroed
     print(f"label counts:\n{runs['label'].value_counts().to_string()}\n-> {a.out}")
 
 

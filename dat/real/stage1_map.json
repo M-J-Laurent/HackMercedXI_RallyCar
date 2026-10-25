@@ -1,0 +1,473 @@
+{
+ "name": "Te Awanga Sprint Forward",
+ "length_m": 4798.0,
+ "flip_handedness": true,
+ "clean_laps": 2,
+ "corners": [
+  {
+   "apex_m": 52.0,
+   "start_m": 16.0,
+   "end_m": 96.0,
+   "direction": "right",
+   "radius_m": 16.8,
+   "kind": "hairpin",
+   "support": 2,
+   "ref_apex_speed_kmh": 41,
+   "clean_apex_speed_kmh": [
+    41,
+    42
+   ],
+   "number": 1
+  },
+  {
+   "apex_m": 139.0,
+   "start_m": 124.0,
+   "end_m": 154.0,
+   "direction": "right",
+   "radius_m": 90.4,
+   "kind": "fast",
+   "support": 2,
+   "ref_apex_speed_kmh": 92,
+   "clean_apex_speed_kmh": [
+    82,
+    92
+   ],
+   "number": 2
+  },
+  {
+   "apex_m": 268.0,
+   "start_m": 235.0,
+   "end_m": 312.0,
+   "direction": "left",
+   "radius_m": 28.5,
+   "kind": "tight",
+   "support": 2,
+   "ref_apex_speed_kmh": 51,
+   "clean_apex_speed_kmh": [
+    15,
+    51
+   ],
+   "number": 3
+  },
+  {
+   "apex_m": 464.0,
+   "start_m": 366.0,
+   "end_m": 483.0,
+   "direction": "left",
+   "radius_m": 39.7,
+   "kind": "tight",
+   "support": 2,
+   "ref_apex_speed_kmh": 54,
+   "clean_apex_speed_kmh": [
+    48,
+    54
+   ],
+   "number": 4
+  },
+  {
+   "apex_m": 564.0,
+   "start_m": 528.0,
+   "end_m": 684.0,
+   "direction": "right",
+   "radius_m": 12.3,
+   "kind": "hairpin",
+   "support": 1,
+   "ref_apex_speed_kmh": 32,
+   "clean_apex_speed_kmh": [
+    30,
+    32
+   ],
+   "number": 5
+  },
+  {
+   "apex_m": 914.0,
+   "start_m": 706.0,
+   "end_m": 998.0,
+   "direction": "right",
+   "radius_m": 18.1,
+   "kind": "hairpin",
+   "support": 1,
+   "ref_apex_speed_kmh": 45,
+   "clean_apex_speed_kmh": [
+    42,
+    45
+   ],
+   "number": 6
+  },
+  {
+   "apex_m": 1122.0,
+   "start_m": 1022.0,
+   "end_m": 1236.0,
+   "direction": "left",
+   "radius_m": 32.4,
+   "kind": "tight",
+   "support": 1,
+   "ref_apex_speed_kmh": 63,
+   "clean_apex_speed_kmh": [
+    58,
+    63
+   ],
+   "number": 7
+  },
+  {
+   "apex_m": 1362.0,
+   "start_m": 1266.0,
+   "end_m": 1386.0,
+   "direction": "right",
+   "radius_m": 34.3,
+   "kind": "tight",
+   "support": 2,
+   "ref_apex_speed_kmh": 40,
+   "clean_apex_speed_kmh": [
+    40,
+    43
+   ],
+   "number": 8
+  },
+  {
+   "apex_m": 1467.0,
+   "start_m": 1422.0,
+   "end_m": 1554.0,
+   "direction": "right",
+   "radius_m": 17.1,
+   "kind": "hairpin",
+   "support": 2,
+   "ref_apex_speed_kmh": 29,
+   "clean_apex_speed_kmh": [
+    29,
+    29
+   ],
+   "number": 9
+  },
+  {
+   "apex_m": 1620.0,
+   "start_m": 1608.0,
+   "end_m": 1638.0,
+   "direction": "left",
+   "radius_m": 95.0,
+   "kind": "fast",
+   "support": 1,
+   "ref_apex_speed_kmh": 100,
+   "clean_apex_speed_kmh": [
+    88,
+    100
+   ],
+   "number": 10
+  },
+  {
+   "apex_m": 1700.0,
+   "start_m": 1674.0,
+   "end_m": 1716.0,
+   "direction": "left",
+   "radius_m": 92.8,
+   "kind": "fast",
+   "support": 1,
+   "ref_apex_speed_kmh": 114,
+   "clean_apex_speed_kmh": [
+    84,
+    114
+   ],
+   "number": 11
+  },
+  {
+   "apex_m": 1930.0,
+   "start_m": 1813.0,
+   "end_m": 1956.0,
+   "direction": "right",
+   "radius_m": 33.0,
+   "kind": "tight",
+   "support": 2,
+   "ref_apex_speed_kmh": 57,
+   "clean_apex_speed_kmh": [
+    57,
+    58
+   ],
+   "number": 12
+  },
+  {
+   "apex_m": 2007.0,
+   "start_m": 1980.0,
+   "end_m": 2030.0,
+   "direction": "left",
+   "radius_m": 48.4,
+   "kind": "medium",
+   "support": 2,
+   "ref_apex_speed_kmh": 83,
+   "clean_apex_speed_kmh": [
+    73,
+    83
+   ],
+   "number": 13
+  },
+  {
+   "apex_m": 2088.0,
+   "start_m": 2066.0,
+   "end_m": 2110.0,
+   "direction": "left",
+   "radius_m": 55.0,
+   "kind": "medium",
+   "support": 2,
+   "ref_apex_speed_kmh": 87,
+   "clean_apex_speed_kmh": [
+    80,
+    87
+   ],
+   "number": 14
+  },
+  {
+   "apex_m": 2181.0,
+   "start_m": 2146.0,
+   "end_m": 2268.0,
+   "direction": "right",
+   "radius_m": 24.3,
+   "kind": "tight",
+   "support": 2,
+   "ref_apex_speed_kmh": 42,
+   "clean_apex_speed_kmh": [
+    12,
+    42
+   ],
+   "number": 15
+  },
+  {
+   "apex_m": 2326.0,
+   "start_m": 2301.0,
+   "end_m": 2351.0,
+   "direction": "left",
+   "radius_m": 43.2,
+   "kind": "medium",
+   "support": 2,
+   "ref_apex_speed_kmh": 65,
+   "clean_apex_speed_kmh": [
+    53,
+    65
+   ],
+   "number": 16
+  },
+  {
+   "apex_m": 2445.0,
+   "start_m": 2420.0,
+   "end_m": 2469.0,
+   "direction": "left",
+   "radius_m": 54.8,
+   "kind": "medium",
+   "support": 2,
+   "ref_apex_speed_kmh": 83,
+   "clean_apex_speed_kmh": [
+    76,
+    83
+   ],
+   "number": 17
+  },
+  {
+   "apex_m": 2676.0,
+   "start_m": 2640.0,
+   "end_m": 2722.0,
+   "direction": "left",
+   "radius_m": 45.8,
+   "kind": "medium",
+   "support": 2,
+   "ref_apex_speed_kmh": 70,
+   "clean_apex_speed_kmh": [
+    68,
+    70
+   ],
+   "number": 18
+  },
+  {
+   "apex_m": 2767.0,
+   "start_m": 2755.0,
+   "end_m": 2781.0,
+   "direction": "right",
+   "radius_m": 89.8,
+   "kind": "fast",
+   "support": 2,
+   "ref_apex_speed_kmh": 93,
+   "clean_apex_speed_kmh": [
+    89,
+    93
+   ],
+   "number": 19
+  },
+  {
+   "apex_m": 2889.0,
+   "start_m": 2865.0,
+   "end_m": 2928.0,
+   "direction": "left",
+   "radius_m": 56.2,
+   "kind": "medium",
+   "support": 2,
+   "ref_apex_speed_kmh": 77,
+   "clean_apex_speed_kmh": [
+    77,
+    79
+   ],
+   "number": 20
+  },
+  {
+   "apex_m": 3116.0,
+   "start_m": 3085.0,
+   "end_m": 3193.0,
+   "direction": "right",
+   "radius_m": 16.1,
+   "kind": "hairpin",
+   "support": 2,
+   "ref_apex_speed_kmh": 38,
+   "clean_apex_speed_kmh": [
+    30,
+    38
+   ],
+   "number": 21
+  },
+  {
+   "apex_m": 3260.0,
+   "start_m": 3238.0,
+   "end_m": 3281.0,
+   "direction": "left",
+   "radius_m": 57.6,
+   "kind": "medium",
+   "support": 2,
+   "ref_apex_speed_kmh": 77,
+   "clean_apex_speed_kmh": [
+    77,
+    78
+   ],
+   "number": 22
+  },
+  {
+   "apex_m": 3413.0,
+   "start_m": 3380.0,
+   "end_m": 3534.0,
+   "direction": "left",
+   "radius_m": 15.7,
+   "kind": "hairpin",
+   "support": 2,
+   "ref_apex_speed_kmh": 33,
+   "clean_apex_speed_kmh": [
+    28,
+    33
+   ],
+   "number": 23
+  },
+  {
+   "apex_m": 3548.0,
+   "start_m": 3534.0,
+   "end_m": 3560.0,
+   "direction": "left",
+   "radius_m": 77.6,
+   "kind": "medium",
+   "support": 1,
+   "ref_apex_speed_kmh": 72,
+   "clean_apex_speed_kmh": [
+    72,
+    78
+   ],
+   "number": 24
+  },
+  {
+   "apex_m": 3653.0,
+   "start_m": 3630.0,
+   "end_m": 3694.0,
+   "direction": "left",
+   "radius_m": 69.5,
+   "kind": "medium",
+   "support": 2,
+   "ref_apex_speed_kmh": 91,
+   "clean_apex_speed_kmh": [
+    80,
+    91
+   ],
+   "number": 25
+  },
+  {
+   "apex_m": 3918.0,
+   "start_m": 3826.0,
+   "end_m": 3990.0,
+   "direction": "right",
+   "radius_m": 26.7,
+   "kind": "tight",
+   "support": 1,
+   "ref_apex_speed_kmh": 25,
+   "clean_apex_speed_kmh": [
+    25,
+    34
+   ],
+   "number": 26
+  },
+  {
+   "apex_m": 4051.0,
+   "start_m": 4033.0,
+   "end_m": 4069.0,
+   "direction": "left",
+   "radius_m": 78.9,
+   "kind": "medium",
+   "support": 2,
+   "ref_apex_speed_kmh": 86,
+   "clean_apex_speed_kmh": [
+    79,
+    86
+   ],
+   "number": 27
+  },
+  {
+   "apex_m": 4168.0,
+   "start_m": 4111.0,
+   "end_m": 4263.0,
+   "direction": "right",
+   "radius_m": 44.0,
+   "kind": "medium",
+   "support": 2,
+   "ref_apex_speed_kmh": 45,
+   "clean_apex_speed_kmh": [
+    45,
+    71
+   ],
+   "number": 28
+  },
+  {
+   "apex_m": 4456.0,
+   "start_m": 4387.0,
+   "end_m": 4530.0,
+   "direction": "left",
+   "radius_m": 30.4,
+   "kind": "tight",
+   "support": 2,
+   "ref_apex_speed_kmh": 50,
+   "clean_apex_speed_kmh": [
+    44,
+    50
+   ],
+   "number": 29
+  },
+  {
+   "apex_m": 4606.0,
+   "start_m": 4588.0,
+   "end_m": 4620.0,
+   "direction": "right",
+   "radius_m": 87.2,
+   "kind": "fast",
+   "support": 1,
+   "ref_apex_speed_kmh": 90,
+   "clean_apex_speed_kmh": [
+    87,
+    90
+   ],
+   "number": 30
+  },
+  {
+   "apex_m": 4672.0,
+   "start_m": 4642.0,
+   "end_m": 4798.0,
+   "direction": "right",
+   "radius_m": 17.2,
+   "kind": "hairpin",
+   "support": 1,
+   "ref_apex_speed_kmh": 22,
+   "clean_apex_speed_kmh": [
+    22,
+    38
+   ],
+   "number": 31
+  }
+ ]
+}

@@ -55,6 +55,22 @@ Honest testing: build with `--range 0 2400` and `--range 2400 4800` into separat
 and score each on the half it never saw (`evaluate_real --holdout`). The in-sample accuracy printed by `train.py`
 on this data is meaningless because every variant comes from the same two laps.
 
+`training/rules.py` adds a rule layer on top of the model: an engine stall (rpm under 600) after a hard stop marks
+a crash or spin, and a 4 g deceleration with no braking marks a collision. These events are merged into the
+model's segments in `infer.py` (`source: rule`, `rule+model` or `model`). The 600 rpm and 4 g thresholds came from
+looking at the five recorded laps, so they need rechecking on new data.
+
+`stage_map.py` builds a pseudo map of the stage from the clean laps (corner number, direction, radius, apex, and the
+speed range the clean laps carried through each corner). `infer.py` attaches it to each segment as `corner`:
+
+```
+python -m anomalyDetection.stage_map --clean ../dat/real/stage1_clean_01.csv ../dat/real/stage1_clean_02.csv \
+    --ref ../dat/real/stage1_clean_02.csv --flip-handedness --out ../dat/real/stage1_map.json
+```
+
+It can also be fed to the model as features (`train.py --stage-map`), but on the half-stage test that gave no gain
+(same recall, slightly more false flags), so the default model does not use it; the map is for describing, not detecting.
+
 ## Using real recorded laps (calibrating the simulator)
 
 1. Telemetry CSVs must follow `schema.py` (units and sign conventions are documented there).

@@ -2,5 +2,6 @@
   "_note": "Metre ranges of mistakes known from the driver's notes in runs.csv (approximate). Unlisted parts of a lap are NOT guaranteed clean.",
   "stage1_sloppy_02.csv": [[440, 470], [3060, 3110], [3920, 3940], [4500, 4540]],
   "stage1_sloppy_01.csv": [[3380, 3460]],
-  "stage1_clean_01.csv": [[2160, 2200]]
+  "stage1_clean_01.csv": [[2160, 2200]],
+  "stage1_sloppy_03.csv": [[380, 420], [590, 630], [1040, 1080], [1550, 1590], [1865, 1905], [4290, 4330], [4625, 4665], [4730, 4770]]
 }

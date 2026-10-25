@@ -39,5 +39,7 @@ FAULT_LABELS = [
     "oversteer",
     "understeer",
     "wrong_gear",
+    "spinout",     # lost control: near-stop, wild steering / g_lat, time lost
+    "reversing",   # stopped or backed up to recover: time passes, almost no distance
 ]
 LABELS = [NORMAL, *FAULT_LABELS]

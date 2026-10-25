@@ -45,6 +45,7 @@ def main():
     p.add_argument("--real-dir", type=Path, default=REPO / "dat" / "real")
     p.add_argument("--ref", default="stage1_clean_02.csv")
     p.add_argument("--holdout", nargs=2, type=float, default=(0, 4800), metavar=("START_M", "END_M"))
+    p.add_argument("--no-rules", action="store_true", help="score the model alone")
     p.add_argument("--thresholds", nargs="+", type=float, default=[0.5, 0.7, 0.9])
     a = p.parse_args()
 
@@ -59,7 +60,7 @@ def main():
     for thr in a.thresholds:
         tot = [0, 0, 0.0, 0.0]
         for f, spots in notes.items():
-            segs = detect(laps[f], ref, bundle, threshold=thr, context_pad_m=0, scored=scored[f])
+            segs = detect(laps[f], ref, bundle, threshold=thr, context_pad_m=0, scored=scored[f], use_rules=not a.no_rules)
             h, n, fl, ft = score(segs, spots, lo, hi, 0)
             tot = [tot[0] + h, tot[1] + n, tot[2] + fl, tot[3] + ft]
             print(f"{thr:>4} {f:<22} {h:>3}/{n:<4} {100 * fl / max(ft, 1):>27.1f}%")

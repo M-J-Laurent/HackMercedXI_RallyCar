@@ -4,10 +4,13 @@ import pandas as pd
 
 from anomalyDetection.resample import resample_to_grid
 from anomalyDetection.schema import DIST, LABEL_COL, LABELS, RUN_ID, TRACK_ID
+from anomalyDetection.stage_map import map_features
 
 DELTA_CHANNELS = ["speed", "throttle", "brake", "steer", "g_lat", "g_long", "rpm", "gear"]
 RAW_CHANNELS = ["speed", "throttle", "brake", "steer", "g_lat", "g_long"]
-WINDOWED = ["d_speed", "d_throttle", "d_brake", "d_steer", "d_g_lat", "d_gear", "d_rpm", "d_rear_front"]
+WINDOWED = ["d_speed", "d_throttle", "d_brake", "d_steer", "d_g_lat", "d_gear", "d_rpm", "d_rear_front",
+             "d_dt", "gear_zero"]
+TIME_SUM_WINDOWS = (5, 15, 50)   # samples: seconds lost over ~10 / 30 / 100 m
 WINDOWS = (5, 15)       # samples (x GRID_STEP_M metres)
 SHIFTS = (-10, -5, 5, 10)
 PACE_WINDOW = 301       # samples (~600 m): slower-than-this offsets count as overall pace, not mistakes
@@ -18,8 +21,13 @@ def _rear_front(d: pd.DataFrame) -> np.ndarray:
             / np.maximum(d.wheel_speed_fl + d.wheel_speed_fr, 1.0)).to_numpy()
 
 
-def build_features(run: pd.DataFrame, ref: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """Returns (features, meta). meta holds lap_distance (and nothing label-related)."""
+def build_features(run: pd.DataFrame, ref: pd.DataFrame, stage_map: dict | None = None,
+                   dist_offset: float = 0.0) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Returns (features, meta). meta holds lap_distance (and nothing label-related).
+
+    With a stage_map, corner context is added. dist_offset converts a cropped lap's distance back
+    to real stage distance (cropped training data is re-zeroed).
+    """
     r, q = resample_to_grid(run), resample_to_grid(ref)
     n = min(len(r), len(q))
     r, q = r.iloc[:n].reset_index(drop=True), q.iloc[:n].reset_index(drop=True)
@@ -42,18 +50,32 @@ def build_features(run: pd.DataFrame, ref: pd.DataFrame) -> tuple[pd.DataFrame, 
     f["front_lr"] = (r.wheel_speed_fr - r.wheel_speed_fl) / np.maximum(r.speed, 1.0)
     f["d_front_lr"] = f["front_lr"] - (q.wheel_speed_fr - q.wheel_speed_fl) / np.maximum(q.speed, 1.0)
 
+    # Time lost against the reference per 2 m step. Reversing leaves almost no other trace (the
+    # converter drops reverse rows), but it shows up here as seconds passing with no distance.
+    dt_r, dt_q = np.diff(r["time"].to_numpy(), prepend=r["time"].iloc[0]), np.diff(q["time"].to_numpy(), prepend=q["time"].iloc[0])
+    d_dt = pd.Series(dt_r - dt_q)
+    f["dt"] = dt_r
+    f["d_dt"] = d_dt - d_dt.rolling(PACE_WINDOW, center=True, min_periods=1).median()
+    for w in TIME_SUM_WINDOWS:
+        f[f"d_dt_sum{w}"] = f["d_dt"].rolling(w, center=True, min_periods=1).sum()
+    f["gear_zero"] = (r["gear"] == 0).astype(float)
+
+    extra = {}
     for c in WINDOWED:
         for w in WINDOWS:
             roll = f[c].rolling(w, center=True, min_periods=1)
-            f[f"{c}_m{w}"] = roll.mean()
-            f[f"{c}_s{w}"] = roll.std().fillna(0)
+            extra[f"{c}_m{w}"] = roll.mean()
+            extra[f"{c}_s{w}"] = roll.std().fillna(0)
         for sh in SHIFTS:  # look ahead / behind so timing faults are visible
-            f[f"{c}_sh{sh}"] = f[c].shift(sh)
+            extra[f"{c}_sh{sh}"] = f[c].shift(sh)
+    f = pd.concat([f, pd.DataFrame(extra)], axis=1)
+    if stage_map is not None:
+        f = pd.concat([f, map_features(r[DIST].to_numpy() + dist_offset, stage_map)], axis=1)
     f = f.fillna(0).astype("float32")
     return f, pd.DataFrame({DIST: r[DIST].to_numpy()})
 
 
-def build_table(runs: pd.DataFrame, refs: pd.DataFrame, track_ids=None):
+def build_table(runs: pd.DataFrame, refs: pd.DataFrame, track_ids=None, stage_map=None, dist_offset=0.0):
     """Features + integer labels + meta for every run in a runs.csv-style frame."""
     label_idx = {l: i for i, l in enumerate(LABELS)}
     ref_by_track = {t: g for t, g in refs.groupby(TRACK_ID)}
@@ -61,7 +83,7 @@ def build_table(runs: pd.DataFrame, refs: pd.DataFrame, track_ids=None):
     for (tid, rid), g in runs.groupby([TRACK_ID, RUN_ID], sort=False):
         if track_ids is not None and tid not in track_ids:
             continue
-        X, meta = build_features(g, ref_by_track[tid])
+        X, meta = build_features(g, ref_by_track[tid], stage_map, dist_offset)
         # runs are generated on the same grid, so labels line up by position
         y = g[LABEL_COL].map(label_idx).to_numpy()[:len(X)]
         meta[TRACK_ID], meta[RUN_ID] = tid, rid

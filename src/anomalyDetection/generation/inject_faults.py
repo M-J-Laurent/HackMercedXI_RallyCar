@@ -28,6 +28,7 @@ class Fault:
     magnitude: float       # metres for timing faults, fraction otherwise
     sign: float = 1.0      # corner direction (+ left)
     gear_offset: int = 0
+    gap_s: float = 0.0     # seconds lost (reversing / spinout)
 
 
 @dataclass
@@ -128,6 +129,12 @@ def inject_profile_faults(track: Track, v_opt: np.ndarray, v: np.ndarray, car: C
             out[i0:i1 + 1] *= 1 - 0.06 * bump(i1 - i0 + 1)
             f = Fault(label, i0, i1, 0.5, sign)
 
+        elif label in ("spinout", "reversing"):
+            i0 = max(c.apex - int((15 if label == "spinout" else 8) / ds), 0)
+            i1 = min(n - 1, c.apex + int((25 if label == "spinout" else 12) / ds))
+            out[i0:i1 + 1] *= 1 - 0.85 * bump(i1 - i0 + 1)
+            f = Fault(label, i0, i1, 0.85, sign, 0, float(rng.uniform(2, 9)))
+
         elif label == "wrong_gear":
             f = Fault(label, max(c.apex - int(20 / ds), 0), min(n - 1, c.apex + int(30 / ds)),
                       1.0, sign, int(rng.choice([-1, 1])))
@@ -156,6 +163,14 @@ def apply_channel_faults(df: pd.DataFrame, faults: list[Fault], car: CarParams) 
                 df.loc[df.index[sl], c] *= 1 - 0.05 * w
         elif f.label == "lifted_mid_corner":
             df.loc[df.index[sl], "throttle"] *= 1 - np.clip(1.6 * w, 0, 1)
+        elif f.label in ("spinout", "reversing"):
+            mid = (f.i0 + f.i1) // 2
+            if f.label == "spinout":
+                t = np.linspace(0, 1, len(w))
+                df.loc[df.index[sl], "steer"] = np.clip(df["steer"].iloc[sl] + 0.5 * np.sin(2 * np.pi * t) * w, -1, 1)
+                df.loc[df.index[sl], "g_lat"] = df["g_lat"].iloc[sl] + 1.0 * np.sin(2 * np.pi * t + 1) * w
+            df.loc[df.index[sl], "gear"] = np.where(w > 0.6, 0 if f.label == "reversing" else 1, df["gear"].iloc[sl])
+            df.loc[df.index[mid:], "time"] += f.gap_s
         elif f.label == "wrong_gear":
             gear = np.clip(df["gear"].iloc[sl].to_numpy() + f.gear_offset, 1, ng)
             df.loc[df.index[sl], "gear"] = gear

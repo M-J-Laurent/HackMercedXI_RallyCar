@@ -52,6 +52,11 @@ def apply_speed_ratio(df: pd.DataFrame, ratio: np.ndarray) -> pd.DataFrame:
     out["rpm"] = np.maximum(df["rpm"] * ratio, df["rpm"].quantile(0.01))
     out["g_lat"] = df["g_lat"] * ratio**2
     out["g_long"] = df["g_long"] + (a1 - a0) / G
+    # time follows the new speed; per-step cap keeps near-stops from adding absurd amounts
+    va0, va1 = 0.5 * (v0[1:] + v0[:-1]), 0.5 * (v1[1:] + v1[:-1])
+    extra = np.clip(DS / np.maximum(va1, 0.3) - DS / np.maximum(va0, 0.3), -0.5, 0.6)
+    dt = np.maximum(np.diff(df["time"].to_numpy()) + extra, 0.001)
+    out["time"] = df["time"].iloc[0] + np.r_[0.0, np.cumsum(dt)]
     return out
 
 
@@ -119,6 +124,10 @@ def inject_real_faults(lap: pd.DataFrame, rng: np.random.Generator, n_faults: in
             i0, i1 = apex - m(10), apex + m(40)
         elif label == "understeer":
             i0, i1 = apex - m(40), apex + m(10)
+        elif label == "spinout":
+            i0, i1 = apex - m(15), apex + m(25)
+        elif label == "reversing":
+            i0, i1 = apex - m(8), apex + m(12)
         else:  # wrong_gear
             i0, i1 = apex - m(30), apex + m(40)
         if i0 < 0 or i1 >= n or any(i0 - 20 <= u1 and i1 + 20 >= u0 for u0, u1 in used):
@@ -154,9 +163,18 @@ def inject_real_faults(lap: pd.DataFrame, rng: np.random.Generator, n_faults: in
             d = rng.uniform(0.05, 0.15)
             ratio[sl] *= 1 - d * w
             e.update(depth=d)
+        elif label == "spinout":
+            d = rng.uniform(0.85, 0.97)
+            ratio[sl] *= 1 - d * w
+            e.update(depth=d, amp=rng.uniform(0.4, 0.7), g=rng.uniform(0.8, 1.4),
+                     freq=int(rng.choice([1, 2])), gap=rng.uniform(2, 9))
+        elif label == "reversing":
+            d = rng.uniform(0.9, 0.99)
+            ratio[sl] *= 1 - d * w
+            e.update(depth=d, gap=rng.uniform(2, 8))
         else:
             e.update(depth=1.0, offset=int(rng.choice([-1, 1])))
-        steer = lap["steer"].to_numpy()[max(apex - m(10), 0):apex + m(10) + 1]
+        steer =lap["steer"].to_numpy()[max(apex - m(10), 0):apex + m(10) + 1]
         e["sign"] = float(np.sign(steer.mean())) or 1.0
         edits.append(e)
         used.append((i0, i1))
@@ -184,6 +202,15 @@ def inject_real_faults(lap: pd.DataFrame, rng: np.random.Generator, n_faults: in
             out.iloc[sl, col("g_lat")] = out["g_lat"].iloc[sl] * (1 - 0.3 * w)
             for c in ("wheel_speed_fl", "wheel_speed_fr"):
                 out.iloc[sl, col(c)] = out[c].iloc[sl] * (1 - 0.05 * w)
+        elif lab in ("spinout", "reversing"):
+            mid = (e["i0"] + e["i1"]) // 2
+            if lab == "spinout":  # wild steering and lateral g while the car rotates
+                t = np.linspace(0, 1, len(w))
+                out.iloc[sl, col("steer")] = np.clip(out["steer"].iloc[sl] + e["amp"] * np.sin(2 * np.pi * e["freq"] * t) * w, -1, 1)
+                out.iloc[sl, col("g_lat")] = out["g_lat"].iloc[sl] + e["g"] * np.sin(2 * np.pi * e["freq"] * t + 1) * w
+            low = w > (0.7 if lab == "spinout" else 0.6)
+            out.iloc[sl, col("gear")] = np.where(low, 1 if lab == "spinout" else 0, out["gear"].iloc[sl])
+            out.iloc[mid:, col("time")] = out["time"].iloc[mid:] + e["gap"]  # seconds lost recovering
         elif lab == "wrong_gear":
             g0 = out["gear"].iloc[sl].to_numpy()
             g1 = np.clip(g0 + e["offset"], 1, len(ratios))
