@@ -49,6 +49,23 @@
       </div>
     </section>
 
+    <!-- AI coach: shown only when the local server (server/app.py) is running -->
+    <section id="coachPanel" class="card coach" aria-label="AI coach" hidden>
+      <div class="coach-main">
+        <div class="coach-text">
+          <h2>AI coach</h2>
+          <p id="coachMsg" class="note"></p>
+        </div>
+        <div class="coach-actions">
+          <select id="coachModel" aria-label="AI coach model" hidden></select>
+          <button id="coachBtn" class="btn btn-primary" hidden></button>
+          <a id="coachLink" class="btn btn-ghost" target="_blank" rel="noopener" hidden>Get Ollama</a>
+          <button id="coachCancel" class="btn btn-ghost" hidden>Cancel</button>
+        </div>
+      </div>
+      <div id="coachBar" class="bar" hidden><div id="coachBarFill" class="bar-fill"></div></div>
+    </section>
+
     <section class="stats" aria-label="Lap summary">
       <div class="stat"><span class="stat-label">Stage time</span><span id="stTime" class="stat-value">–</span></div>
       <div class="stat"><span class="stat-label">Reference</span><span id="stRef" class="stat-value">–</span></div>
@@ -124,8 +141,8 @@
         <li><b>Capture</b><span>The game streams 66 values ~60 times a second over UDP. A Python logger saves every packet.</span></li>
         <li><b>Clean</b><span>Laps are cut at the start and finish, restarts and reverse gear are removed, signs are calibrated, and slide angle / yaw rate are derived.</span></li>
         <li><b>Compare</b><span>Your lap and the reference are resampled to the same distance grid, so every metre of the stage lines up.</span></li>
-        <li><b>Detect</b><span>A LightGBM model trained on physics-generated laps (plus rules for spins and crashes) flags where you went wrong.</span></li>
-        <li><b>Explain</b><span>An LLM turns each flagged segment into one short coaching tip, using only the numbers it was given.</span></li>
+        <li><b>Detect</b><span>A LightGBM model trained on real laps (with mistakes edited in), plus rules for spins and crashes, flags where you went wrong.</span></li>
+        <li><b>Explain</b><span>A small LLM running on your own computer turns each flagged segment into a short coaching tip, using only the numbers it was given.</span></li>
       </ol>
     </section>
 
@@ -165,5 +182,6 @@
 
   <script src="data/bundle.js"></script>
   <script src="app.js"></script>
+  <script src="backend.js"></script>
 </body>
 </html>

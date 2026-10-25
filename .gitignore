@@ -16,3 +16,5 @@ models/*
 !models/anomaly_model.joblib
 
 dat/real_aug*/
+
+Claude outputs/
