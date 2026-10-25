@@ -267,3 +267,5 @@ a.btn { text-decoration: none; color: inherit; }
 .bar.is-indeterminate .bar-fill { width: 35%; animation: coach-slide 1.2s ease-in-out infinite; }
 @keyframes coach-slide { 0% { margin-left: -35%; } 100% { margin-left: 100%; } }
 @media (prefers-reduced-motion: reduce) { .bar-fill { transition: none; } .bar.is-indeterminate .bar-fill { animation: none; width: 100%; opacity: 0.4; } }
+
+.tip-text.is-facts { color: var(--text-secondary); font-variant-numeric: tabular-nums; }

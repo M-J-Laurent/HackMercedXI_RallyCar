@@ -9,7 +9,7 @@ so the site works on GitHub Pages AND when index.html is opened straight from di
 Where mistake segments come from, per lap (first match wins):
   1. web/data/analysis/<lap>.json   - output of infer.py, optionally with a "tip" per segment from the LLM
   2. --infer                        - runs infer.py now and saves its output to (1)
-  3. dat/real/annotations.json      - the driver's notes (marked as such in the UI)
+Nothing else: the driver's notes (dat/real/annotations.json) are only used to score the model, never shown.
 
 Standard library only.
 """
@@ -100,12 +100,6 @@ def main():
         runs = [r for r in csv.DictReader(f) if r.get("file")]
     ref = a.ref or next((r["file"] for r in runs if "REFERENCE" in r.get("type", "").upper()), runs[0]["file"])
 
-    notes = {}
-    ann_path = os.path.join(REAL, "annotations.json")
-    if os.path.exists(ann_path):
-        with open(ann_path) as f:
-            notes = {k: v for k, v in json.load(f).items() if not k.startswith("_")}
-
     stage_map = None
     map_path = os.path.join(REAL, "stage1_map.json")
     if os.path.exists(map_path):
@@ -126,7 +120,7 @@ def main():
             continue
         rows, cols = load_lap(path)
         lap = {"file": r["file"], "name": r["file"].replace(".csv", ""), "stage": r.get("stage", ""),
-               "car": r.get("car", ""), "type": r.get("type", ""), "notes": r.get("notes", ""),
+               "car": r.get("car", ""), "type": r.get("type", ""),
                "is_reference": r["file"] == ref, "trace": resample(rows, cols)}
         if r["file"] != ref:
             apath = os.path.join(ANALYSIS, r["file"].replace(".csv", ".json"))
@@ -138,9 +132,6 @@ def main():
             elif a.infer:
                 segs = run_infer(r["file"], ref)
                 lap["segments_source"] = "model" if segs is not None else None
-            if segs is None and r["file"] in notes:
-                segs = [{"start_m": lo, "end_m": hi} for lo, hi in notes[r["file"]]]
-                lap["segments_source"] = "driver_notes"
             lap["segments"] = segs or []
         laps.append(lap)
         print(f"{r['file']}: {len(lap['trace']['d'])} points, "

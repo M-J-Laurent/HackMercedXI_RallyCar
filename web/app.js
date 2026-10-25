@@ -129,32 +129,20 @@
     const label = seg.suggested_type || (seg.rule && seg.rule.label) || null;
     const corner = seg.corner || locate(seg.start_m, seg.end_m);
     const m = { vMin, vRefMin, slipMax, earlyBrake, lift, lost, corner };
-    return { ...seg, label, lost, corner, metrics: m, tip: seg.tip || makeTip(label, m, seg) };
+    return { ...seg, label, lost, corner, metrics: m, tip: seg.tip || null, facts: makeFacts(label, m, seg) };
   }
 
-  function makeTip(label, m, seg) {
-    const at = cornerPhrase(m.corner);
-    const dv = Math.round(m.vRefMin - m.vMin);
-    const g = seg.evidence && seg.evidence.gear_delta;
-    switch (label) {
-      case "braked_too_early": return `You got on the brakes too early${at}. Brake later and carry more speed in; the reference was ${dv} km/h faster at the slowest point.`;
-      case "braked_too_late": return `Too much speed into the braking zone${at}: you overshot and had to scrub speed. Brake a little earlier so you can get back on the power sooner.`;
-      case "lifted_mid_corner": return `You came off the throttle mid-corner${at}. Hold a steady part-throttle to keep the car balanced.`;
-      case "late_throttle": return `You waited too long to get back on the power after the apex${at}. Start feeding in throttle as soon as the car is pointed at the exit.`;
-      case "oversteer": return `The rear stepped out${at} (slide angle up to ${Math.round(m.slipMax)}°). Smoother throttle and a little less entry speed keep the car straighter.`;
-      case "understeer": return `The front washed wide${at}. Slow down a bit more before turning in instead of adding steering.`;
-      case "wrong_gear": return `You were a gear ${g > 0 ? "higher" : "lower"} than the reference${at}. Match the gear to the speed for better drive.`;
-      case "spinout": return `You spun${at} and lost ${Math.abs(m.lost).toFixed(1)} s. Back off the entry speed here until the line feels comfortable.`;
-      case "collision": return `You hit something${at}. A slower, tidier line through here is worth more than the risk.`;
-      default: {
-        const bits = [];
-        if (m.earlyBrake) bits.push("you were braking where the reference wasn't");
-        if (m.lift) bits.push("you were off the throttle where the reference was flat out");
-        if (m.slipMax > 25) bits.push(`the car was sliding (up to ${Math.round(m.slipMax)}°)`);
-        const why = bits.length ? ` Here ${bits.join(", and ")}.` : "";
-        return `You lost ${Math.abs(m.lost).toFixed(1)} s${at}. Your slowest speed was ${Math.round(m.vMin)} km/h against ${Math.round(m.vRefMin)} km/h on the reference.${why}`;
-      }
-    }
+  // What the model found, as plain numbers. No advice: written coaching only ever comes from the LLM.
+  function makeFacts(label, m, seg) {
+    if (Array.isArray(seg.facts) && seg.facts.length) return seg.facts.join(" ");  // measurements from the analysis itself
+    const parts = [];
+    const len = Math.round(seg.end_m - seg.start_m);
+    parts.push(`Flagged over ${len} m. Cost ${fmtSigned(m.lost, "s")} against the reference.`);
+    if (isFinite(m.vMin) && isFinite(m.vRefMin)) parts.push(`Slowest speed ${Math.round(m.vMin)} km/h; the reference was at ${Math.round(m.vRefMin)} km/h at its slowest here.`);
+    if (m.slipMax > 25) parts.push(`Slide angle reached ${Math.round(m.slipMax)}°.`);
+    const r = seg.rule;
+    if (r) parts.push(`Engine stalled for ${r.stall_s} s; speed fell from ${r.speed_before_kmh} to ${r.speed_min_kmh} km/h (peak ${r.peak_decel_g} g, brake ${Math.round(r.max_brake * 100)}%).`);
+    return parts.join(" ");
   }
 
   // ---------------------------------------------------------------- lap selection
@@ -197,17 +185,16 @@
   function renderTips() {
     const ol = $("tips"); ol.replaceChildren();
     const src = state.lap.segments_source;
+    const llmBy = state.segs.find((s) => s.tip_by);
     $("sourceNote").textContent = state.lap === state.ref
       ? "This is the reference lap, so there is nothing to compare. Pick another lap."
-      : src === "driver_notes"
-        ? "Mistake locations come from the driver's notes; the model's output hasn't been added for this lap yet. Tips are auto-written from the telemetry."
-        : src === "model" ? (state.segs.some((s) => s.tip_by)
-          ? `Mistakes found by the anomaly model; tips written by ${state.segs.find((s) => s.tip_by).tip_by} running on this computer.`
-          : "Mistakes found by the anomaly model. Tips come from the LLM where available, otherwise they're auto-written from the telemetry.")
-        : "";
+      : src === "model" ? (llmBy
+          ? `Mistakes found by the anomaly model; tips written by ${llmBy.tip_by} running on this computer.`
+          : "Mistakes found by the anomaly model. The numbers below are the model's output; written coaching needs the AI coach (run the local server and click Install / Download in the AI coach card).")
+        : "No model results for this lap yet. Run python server/app.py (analyses it live) or python web/build_data.py --infer.";
     if (!state.segs.length) {
       const li = document.createElement("li"); li.className = "empty";
-      li.textContent = state.lap === state.ref ? "Reference lap" : "No mistakes found on this lap. Clean run!";
+      li.textContent = state.lap === state.ref ? "Reference lap" : state.lap.segments_source === "model" ? "The model found no mistakes on this lap." : "Not analysed yet.";
       ol.append(li); return;
     }
     const order = state.segs.map((s, i) => i);
@@ -221,7 +208,7 @@
       const title = el("span", "tip-title", s.label && LABELS[s.label] ? LABELS[s.label].name : "Time lost");
       const loss = el("span", "tip-loss " + (s.lost > 0 ? "loss" : "gain"), fmtSigned(s.lost));
       const where = el("span", "tip-where", whereText(s.corner, s));
-      const text = el("p", "tip-text", s.tip);
+      const text = el("p", "tip-text" + (s.tip ? "" : " is-facts"), s.tip || s.facts);
       li.append(num, title, loss, where, text);
       if (typeof s.confidence === "number") li.append(el("span", "tip-src", `${s.source || "model"} · confidence ${Math.round(s.confidence * 100)}%${s.tip_by ? " · tip by " + s.tip_by : ""}`));
       li.addEventListener("click", () => selectSeg(i, false));

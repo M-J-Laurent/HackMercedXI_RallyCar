@@ -60,7 +60,7 @@ def main():
     for thr in a.thresholds:
         tot = [0, 0, 0.0, 0.0]
         for f, spots in notes.items():
-            segs = detect(laps[f], ref, bundle, threshold=thr, context_pad_m=0, scored=scored[f], use_rules=not a.no_rules)
+            segs = detect(laps[f], ref, bundle, threshold=thr, context_pad_m=0, scored=scored[f], use_rules=not a.no_rules, expand=False)
             h, n, fl, ft = score(segs, spots, lo, hi, 0)
             tot = [tot[0] + h, tot[1] + n, tot[2] + fl, tot[3] + ft]
             print(f"{thr:>4} {f:<22} {h:>3}/{n:<4} {100 * fl / max(ft, 1):>27.1f}%")

@@ -44,20 +44,33 @@ LINUX_INSTALL_COMMAND = "curl -fsSL https://ollama.com/install.sh | sh"
 _MODEL_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:/-]{0,100}$")
 
 SYSTEM_PROMPT = (
-    "You are a rally driving coach reviewing one moment from a driver's stage. You get what a model "
-    "flagged and the telemetry around it: the driver's trace next to the reference (ideal) lap.\n"
-    "Rules:\n"
-    "- Use only the numbers you are given. Never invent corners, speeds or causes you cannot see.\n"
-    "- Say where it happened using the corner number or the metres.\n"
-    "- Write exactly two short sentences: first what the driver did differently from the reference "
-    "(brake point, throttle, steering, speed), then one concrete thing to do next time.\n"
-    "- The type hint is a guess and may be wrong. If the traces disagree, trust the traces.\n"
-    "- If a rule says the engine stalled or the car hit something, say that plainly.\n"
-    "- Plain language for a gamer, no hardware or force-feedback advice, no bullet points, at most 45 words."
+    "You are a rally driving coach speaking directly to the driver. You get one mistake found in their stage, "
+    "with measurements from their telemetry compared with the reference (ideal) lap.\n"
+    "Write exactly two sentences, addressed to \"you\":\n"
+    "1. Start with \"At\" and the corner number (or the metres). Say what you did, using two or three of the "
+    "measurements and the time lost.\n"
+    "2. Start with \"Next time,\" and give one concrete change for that spot.\n"
+    "Rules: only use numbers that appear in the measurements; do not do your own arithmetic; never repeat yourself; "
+    "no general driving tips. If the engine stalled or the car hit something, say so. "
+    "The type guess may be wrong, so trust the measurements over it."
+)
+
+# A made-up example about a different corner, to show the format only.
+EXAMPLE_USER = (
+    "Where: corner 12 (right hairpin), approach to apex\n"
+    "Time lost: 1.4 s\n"
+    "Measurements:\n"
+    "- At 880 m you were going 96 km/h, 8 km/h faster than the reference (88 km/h).\n"
+    "- Your slowest speed in this stretch was 22 km/h at 931 m; the reference's slowest was 35 km/h, so you were 13 km/h lower.\n"
+    "- You first braked hard at 905 m; the reference first braked hard at 882 m (23 m later for you).\n"
+    "Type guess (may be wrong): braked_too_late"
+)
+EXAMPLE_ASSISTANT = (
+    "At corner 12 you were 8 km/h faster than the reference, braked 23 m later and slowed to 22 km/h instead of 35, "
+    "which cost 1.4 s. Next time, start braking about 20 m earlier so you can carry more speed through the apex."
 )
 
 
-# ------------------------------------------------------------------ plumbing
 def _open(path: str, payload: dict | None = None, timeout: float = 5.0):
     data = json.dumps(payload).encode() if payload is not None else None
     req = urllib.request.Request(OLLAMA_URL + path, data=data,
@@ -346,66 +359,103 @@ def status(model: str | None = None) -> dict:
 
 
 # ------------------------------------------------------------------ writing tips
-def _fmt_table(ctx: dict, start_m: float, end_m: float) -> str:
-    cols = ctx["columns"]
-    ix = {c: i for i, c in enumerate(cols)}
-    out = ["metre | in segment | speed km/h you/ref | throttle you/ref | brake you/ref | steer you/ref | gear you/ref"
-           + (" | slip deg you/ref" if "slip_angle_deg" in ix else "")]
-    for a, b in zip(ctx["driver"], ctx["reference"]):
-        d = a[ix["lap_distance"]]
-        row = (f"{d:.0f} | {'yes' if start_m <= d <= end_m else 'no'} | "
-               f"{a[ix['speed']] * 3.6:.0f}/{b[ix['speed']] * 3.6:.0f} | "
-               f"{a[ix['throttle']]:.2f}/{b[ix['throttle']]:.2f} | {a[ix['brake']]:.2f}/{b[ix['brake']]:.2f} | "
-               f"{a[ix['steer']]:+.2f}/{b[ix['steer']]:+.2f} | {a[ix['gear']]:.0f}/{b[ix['gear']]:.0f}")
-        if "slip_angle_deg" in ix:
-            row += f" | {a[ix['slip_angle_deg']]:.0f}/{b[ix['slip_angle_deg']]:.0f}"
-        out.append(row)
-    return "\n".join(out)
-
-
 def build_prompt(seg: dict, stage: str = "") -> str:
     ev, c = seg.get("evidence", {}), seg.get("corner") or {}
     if c.get("number"):
-        where = (f"corner {c['number']} ({c['direction']} {c['kind']}, radius {c['radius_m']:.0f} m), "
-                 f"from the {c['phase_at_start']} to the {c['phase_at_end']}, {c['offset_from_apex_m']:+d} m from the apex; "
-                 f"the reference carries {c['ref_apex_speed_kmh']} km/h here, clean laps {c['clean_apex_speed_kmh'][0]}-{c['clean_apex_speed_kmh'][1]} km/h")
+        where = (f"corner {c['number']} ({c['direction']} {c['kind']}), {c['phase_at_start']} to {c['phase_at_end']}, "
+                 f"segment {seg['start_m']:.0f}-{seg['end_m']:.0f} m")
     elif c.get("on_straight"):
-        where = f"on the straight after corner {c.get('after_corner')}, {c.get('to_next_corner_m')} m before corner {c.get('before_corner')}"
+        where = f"on the straight between corner {c.get('after_corner')} and corner {c.get('before_corner')}, {seg['start_m']:.0f}-{seg['end_m']:.0f} m"
     else:
-        where = "location not mapped"
-    lines = [
-        f"Stage: {stage}" if stage else "",
-        f"Where: {seg['start_m']:.0f}-{seg['end_m']:.0f} m, {where}",
-        f"Time lost against the reference in this segment: {ev.get('time_lost_s', 0):+.1f} s",
-        f"Average speed difference (you minus reference): {ev.get('speed_delta_ms', 0) * 3.6:+.0f} km/h",
-        f"Detected by: {seg.get('source', 'model')}. Type hint (may be wrong): {seg.get('suggested_type')}",
-    ]
+        where = f"{seg['start_m']:.0f}-{seg['end_m']:.0f} m"
+    lines = [f"Where: {where}", f"Time lost: {ev.get('time_lost_s', 0):.1f} s"]
     if seg.get("rule"):
         r = seg["rule"]
-        lines.append(f"Rule: the engine stalled for {r['stall_s']} s; speed went from {r['speed_before_kmh']} to "
-                     f"{r['speed_min_kmh']} km/h; peak deceleration {r['peak_decel_g']} g with brake at most {r['max_brake']}")
-    lines.append("Traces (driver/reference):\n" + _fmt_table(seg["context"], seg["start_m"], seg["end_m"]))
-    return "\n".join(x for x in lines if x)
+        what = "hit something" if seg.get("suggested_type") == "collision" else "lost control"
+        lines.append(f"Event: the engine stalled for {r['stall_s']} s and the car {what}; speed went from "
+                     f"{r['speed_before_kmh']} to {r['speed_min_kmh']} km/h, peak deceleration {r['peak_decel_g']} g, brake at most {r['max_brake']}")
+    lines.append("Measurements:")
+    lines += [f"- {f}" for f in seg.get("facts") or ["(no measurements available)"]]
+    lines.append(f"Type guess (may be wrong): {seg.get('suggested_type')}")
+    return "\n".join(lines)
+
+
+def clean_tip(text: str) -> str:
+    """Small models repeat themselves and run on. Keep the opening 'At ...' sentence and the 'Next time, ...' one."""
+    text = text.replace("’", "'").replace("‘", "'").replace("“", '"').replace("”", '"')
+    text = re.sub(r"\s+", " ", text).strip()
+    text = re.sub(r"^\s*\d+[.)]\s*", "", text)
+    seen, sents = set(), []
+    for sent in re.split(r"(?<=[.!?])\s+", text):
+        key = re.sub(r"\W+", " ", sent.lower()).strip()
+        if sent and key not in seen:
+            seen.add(key)
+            sents.append(sent)
+    first = next((k for k, x in enumerate(sents) if x.startswith("At ")), None)
+    last = next((k for k, x in enumerate(sents) if x.startswith("Next time,")), None)
+    if first is not None and last is not None and first < last:
+        kept = sents[first:last + 1]
+        if len(kept) > 3:  # keep the opening and the advice, drop the ramble between them
+            kept = [kept[0], kept[-1]]
+    else:
+        kept = sents[:2]
+    out = " ".join(x for x in kept if x)
+    return out if out.endswith((".", "!", "?")) else out + "."
+
+
+_NUM = re.compile(r"\d+(?:\.\d+)?")
+# hardware / setup talk and units we never gave the model: small models drift into these
+_OFF_TOPIC = re.compile(r"(tire|tyre|pressure|alignment|setup|set-up|clutch|suspension|differential|camber|minutes?|hours?|neutral|force feedback|ffb)", re.I)
+
+
+def check_tip(tip: str, prompt: str, seg: dict) -> str | None:
+    """Why a tip is not usable, or None if it is. Small models invent numbers and skip the advice."""
+    if not tip.startswith("At "):
+        return "does not start with 'At'"
+    if "Next time," not in tip:
+        return "has no 'Next time,' advice"
+    off_topic = _OFF_TOPIC.search(tip)
+    if off_topic:
+        return f"mentions something we did not measure ({off_topic.group(0)})"
+    allowed = set(_NUM.findall(prompt))
+    invented = [n for n in _NUM.findall(tip) if n not in allowed]
+    if invented:
+        return f"uses numbers that are not in the measurements ({', '.join(invented[:3])})"
+    return None
+
+
+TEMPERATURES = (0.3, 0.6, 0.8)  # first try is careful; retries explore
 
 
 def write_tip(seg: dict, model: str, stage: str = "", timeout: float = 300.0) -> str:
-    payload = {
-        "model": model, "stream": False,
-        "messages": [{"role": "system", "content": SYSTEM_PROMPT},
-                     {"role": "user", "content": build_prompt(seg, stage)}],
-        "options": {"temperature": 0.2, "num_predict": 110, "num_thread": max((os.cpu_count() or 4) // 2, 2)},
-    }
-    with _open("/api/chat", payload, timeout=timeout) as r:
-        text = json.load(r)["message"]["content"].strip()
-    return re.sub(r"\s+", " ", text)[:500]
+    """Ask for a tip, check it, and try again (up to 3 times). Raises if none is reliable."""
+    user = build_prompt(seg, stage)
+    last = "no attempt"
+    for temp in TEMPERATURES:
+        payload = {
+            "model": model, "stream": False,
+            "messages": [{"role": "system", "content": SYSTEM_PROMPT},
+                         {"role": "user", "content": EXAMPLE_USER},
+                         {"role": "assistant", "content": EXAMPLE_ASSISTANT},
+                         {"role": "user", "content": user}],
+            "options": {"temperature": temp, "top_p": 0.9, "repeat_penalty": 1.2, "num_predict": 170,
+                        "num_thread": max((os.cpu_count() or 4) // 2, 2)},
+        }
+        with _open("/api/chat", payload, timeout=timeout) as r:
+            tip = clean_tip(json.load(r)["message"]["content"])
+        problem = check_tip(tip, user, seg)
+        if problem is None:
+            return tip
+        last = problem
+    raise ValueError(f"the model's tip was not reliable ({last}); showing the measurements instead")
 
 
 def stream_tips(segments: list[dict], model: str, stage: str = ""):
     """Yield (index, tip, error) per segment, as soon as each is written."""
     for i, seg in enumerate(segments):
         try:
-            if "context" not in seg:
-                raise ValueError("segment has no telemetry context")
+            if not seg.get("facts"):
+                raise ValueError("segment has no measurements")
             yield i, write_tip(seg, model, stage), None
         except Exception as e:  # noqa: BLE001 - reported per segment, the rest still run
             yield i, None, str(e)

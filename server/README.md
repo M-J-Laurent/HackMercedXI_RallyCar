@@ -47,6 +47,16 @@ Without an LLM the site still shows its built-in tips, so nothing breaks.
 Command line equivalent of the button: `ollama pull qwen2.5:3b`.
 Use a different Ollama address with `OLLAMA_HOST=http://host:port`.
 
+## How a tip is made
+
+1. `analysis.py` returns each mistake with `facts`: plain sentences measured at 2 m resolution (your speed vs the
+   reference at the start, slowest speed, first hard braking, time off the throttle, slide angle).
+2. `llm.py` sends those facts, the corner and the time lost to the model with a worked example, and asks for two
+   sentences: "At <corner> you ..." then "Next time, ...".
+3. `check_tip` rejects a tip that does not start with "At", has no "Next time,", uses a number that is not in the
+   facts, or talks about hardware / setup. It retries up to 3 times with higher temperature; if none passes, the
+   page shows the plain measurements. Nothing is pre-written.
+
 ## API
 
 | Route | Purpose |

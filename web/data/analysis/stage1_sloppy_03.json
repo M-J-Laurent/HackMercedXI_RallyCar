@@ -1,0 +1,284 @@
+[
+ {
+  "start_m": 286.0,
+  "end_m": 308.0,
+  "flagged_start_m": 286.0,
+  "flagged_end_m": 292.0,
+  "source": "model",
+  "confidence": 0.808,
+  "suggested_type": "understeer",
+  "suggested_type_confidence": 0.999,
+  "evidence": {
+   "speed_delta_ms": -1.91,
+   "local_speed_delta_ms": -2.32,
+   "throttle_delta": 0.23,
+   "brake_delta": 0.0,
+   "steer_delta": -0.007,
+   "gear_delta": -0.67,
+   "time_lost_s": 0.2
+  },
+  "corner": {
+   "number": 3,
+   "direction": "left",
+   "radius_m": 28.5,
+   "kind": "tight",
+   "apex_m": 268.0,
+   "phase_at_start": "exit",
+   "phase_at_end": "exit",
+   "offset_from_apex_m": 29,
+   "ref_apex_speed_kmh": 51,
+   "clean_apex_speed_kmh": [
+    15,
+    51
+   ],
+   "also_touches": [
+    4
+   ]
+  }
+ },
+ {
+  "start_m": 380.0,
+  "end_m": 442.0,
+  "flagged_start_m": 380.0,
+  "flagged_end_m": 416.0,
+  "source": "model",
+  "confidence": 0.99,
+  "suggested_type": "braked_too_late",
+  "suggested_type_confidence": 0.595,
+  "evidence": {
+   "speed_delta_ms": -3.14,
+   "local_speed_delta_ms": -3.48,
+   "throttle_delta": -0.215,
+   "brake_delta": 0.183,
+   "steer_delta": 0.14,
+   "gear_delta": 0.09,
+   "time_lost_s": 0.8
+  },
+  "corner": {
+   "number": 4,
+   "direction": "left",
+   "radius_m": 39.7,
+   "kind": "tight",
+   "apex_m": 464.0,
+   "phase_at_start": "entry",
+   "phase_at_end": "entry",
+   "offset_from_apex_m": -53,
+   "ref_apex_speed_kmh": 54,
+   "clean_apex_speed_kmh": [
+    48,
+    54
+   ]
+  }
+ },
+ {
+  "start_m": 1030.0,
+  "end_m": 1118.0,
+  "flagged_start_m": 1034.0,
+  "flagged_end_m": 1098.0,
+  "source": "rule+model",
+  "confidence": 1.0,
+  "suggested_type": "spinout",
+  "suggested_type_confidence": 1.0,
+  "evidence": {
+   "speed_delta_ms": -14.14,
+   "local_speed_delta_ms": -13.94,
+   "throttle_delta": 0.159,
+   "brake_delta": 0.017,
+   "steer_delta": -0.337,
+   "gear_delta": -1.58,
+   "time_lost_s": 10.0
+  },
+  "rule": {
+   "name": "engine_stall",
+   "stall_s": 2.2,
+   "speed_before_kmh": 68,
+   "speed_min_kmh": 0,
+   "peak_decel_g": 2.1,
+   "max_brake": 0.0
+  },
+  "corner": {
+   "number": 7,
+   "direction": "left",
+   "radius_m": 32.4,
+   "kind": "tight",
+   "apex_m": 1122.0,
+   "phase_at_start": "entry",
+   "phase_at_end": "apex",
+   "offset_from_apex_m": -48,
+   "ref_apex_speed_kmh": 63,
+   "clean_apex_speed_kmh": [
+    58,
+    63
+   ]
+  }
+ },
+ {
+  "start_m": 1566.0,
+  "end_m": 1674.0,
+  "flagged_start_m": 1586.0,
+  "flagged_end_m": 1592.0,
+  "source": "model",
+  "confidence": 0.515,
+  "suggested_type": "late_throttle",
+  "suggested_type_confidence": 0.995,
+  "evidence": {
+   "speed_delta_ms": -13.49,
+   "local_speed_delta_ms": -9.09,
+   "throttle_delta": -0.326,
+   "brake_delta": 0.0,
+   "steer_delta": -0.053,
+   "gear_delta": -2.33,
+   "time_lost_s": 2.8
+  },
+  "corner": {
+   "number": 10,
+   "direction": "left",
+   "radius_m": 95.0,
+   "kind": "fast",
+   "apex_m": 1620.0,
+   "phase_at_start": "approach",
+   "phase_at_end": "exit",
+   "offset_from_apex_m": 0,
+   "ref_apex_speed_kmh": 100,
+   "clean_apex_speed_kmh": [
+    88,
+    100
+   ],
+   "also_touches": [
+    11
+   ]
+  }
+ },
+ {
+  "start_m": 1858.0,
+  "end_m": 1944.0,
+  "flagged_start_m": 1858.0,
+  "flagged_end_m": 1904.0,
+  "source": "rule+model",
+  "confidence": 1.0,
+  "suggested_type": "spinout",
+  "suggested_type_confidence": 1.0,
+  "evidence": {
+   "speed_delta_ms": -4.46,
+   "local_speed_delta_ms": -0.51,
+   "throttle_delta": 0.033,
+   "brake_delta": 0.013,
+   "steer_delta": -0.062,
+   "gear_delta": -1.14,
+   "time_lost_s": 10.7
+  },
+  "rule": {
+   "name": "engine_stall",
+   "stall_s": 1.0,
+   "speed_before_kmh": 72,
+   "speed_min_kmh": 0,
+   "peak_decel_g": 2.1,
+   "max_brake": 0.0
+  },
+  "corner": {
+   "number": 12,
+   "direction": "right",
+   "radius_m": 33.0,
+   "kind": "tight",
+   "apex_m": 1930.0,
+   "phase_at_start": "entry",
+   "phase_at_end": "exit",
+   "offset_from_apex_m": -29,
+   "ref_apex_speed_kmh": 57,
+   "clean_apex_speed_kmh": [
+    57,
+    58
+   ],
+   "also_touches": [
+    13
+   ]
+  }
+ },
+ {
+  "start_m": 4268.0,
+  "end_m": 4370.0,
+  "flagged_start_m": 4268.0,
+  "flagged_end_m": 4338.0,
+  "source": "rule+model",
+  "confidence": 1.0,
+  "suggested_type": "collision",
+  "suggested_type_confidence": 1.0,
+  "evidence": {
+   "speed_delta_ms": -9.19,
+   "local_speed_delta_ms": -10.08,
+   "throttle_delta": 0.125,
+   "brake_delta": -0.076,
+   "steer_delta": -0.017,
+   "gear_delta": -0.44,
+   "time_lost_s": 5.8
+  },
+  "rule": {
+   "name": "engine_stall",
+   "stall_s": 1.3,
+   "speed_before_kmh": 97,
+   "speed_min_kmh": 1,
+   "peak_decel_g": 5.3,
+   "max_brake": 0.0
+  },
+  "corner": {
+   "number": 29,
+   "direction": "left",
+   "radius_m": 30.4,
+   "kind": "tight",
+   "apex_m": 4456.0,
+   "phase_at_start": "approach",
+   "phase_at_end": "approach",
+   "offset_from_apex_m": -137,
+   "ref_apex_speed_kmh": 50,
+   "clean_apex_speed_kmh": [
+    44,
+    50
+   ],
+   "also_touches": [
+    28
+   ]
+  }
+ },
+ {
+  "start_m": 4734.0,
+  "end_m": 4790.0,
+  "flagged_start_m": 4734.0,
+  "flagged_end_m": 4790.0,
+  "source": "rule",
+  "confidence": 1.0,
+  "suggested_type": "spinout",
+  "suggested_type_confidence": 1.0,
+  "evidence": {
+   "speed_delta_ms": -3.4,
+   "local_speed_delta_ms": -1.79,
+   "throttle_delta": 0.069,
+   "brake_delta": -0.023,
+   "steer_delta": 0.103,
+   "gear_delta": -0.66,
+   "time_lost_s": 8.6
+  },
+  "rule": {
+   "name": "engine_stall",
+   "stall_s": 0.0,
+   "speed_before_kmh": 45,
+   "speed_min_kmh": 6,
+   "peak_decel_g": 2.4,
+   "max_brake": 0.0
+  },
+  "corner": {
+   "number": 31,
+   "direction": "right",
+   "radius_m": 17.2,
+   "kind": "hairpin",
+   "apex_m": 4672.0,
+   "phase_at_start": "exit",
+   "phase_at_end": "exit",
+   "offset_from_apex_m": 90,
+   "ref_apex_speed_kmh": 22,
+   "clean_apex_speed_kmh": [
+    22,
+    38
+   ]
+  }
+ }
+]
