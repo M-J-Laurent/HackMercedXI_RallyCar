@@ -35,16 +35,24 @@ def _context(r: pd.DataFrame, q: pd.DataFrame, i: int, j: int, pad_m: float, ste
     return {"step_m": float(every * grid), "columns": cols, "driver": rows(r), "reference": rows(q)}
 
 
-def detect(run: pd.DataFrame, ref: pd.DataFrame, bundle: dict, threshold: float = 0.5,
-           min_len_m: float = 10.0, max_gap_m: float = 4.0,
-           context_pad_m: float = 100.0, context_step_m: float = 10.0) -> list[dict]:
+def score_run(run: pd.DataFrame, ref: pd.DataFrame, bundle: dict):
+    """The expensive part of detect(): features + model. Reuse it to try several thresholds."""
     X, meta = build_features(run, ref)
     r, q = resample_to_grid(run).iloc[:len(X)], resample_to_grid(ref).iloc[:len(X)]
-    proba = bundle["model"].predict_proba(X[bundle["feature_names"]])
+    return X, meta, r, q, bundle["model"].predict_proba(X[bundle["feature_names"]])
+
+
+def detect(run: pd.DataFrame, ref: pd.DataFrame, bundle: dict, threshold: float = 0.9,
+           min_len_m: float = 4.0, max_gap_m: float = 4.0,
+           context_pad_m: float = 100.0, context_step_m: float = 10.0, scored=None,
+           extend_threshold: float = 0.3) -> list[dict]:
+    """Segments start where P(anomalous) >= threshold and grow while it stays >= extend_threshold."""
+    X, meta, r, q, proba = scored if scored is not None else score_run(run, ref, bundle)
     normal = LABELS.index(NORMAL)
     p_anom = 1.0 - proba[:, normal]
-    mask = p_anom >= threshold
-    d = meta[DIST].to_numpy()
+    core = p_anom >= threshold
+    mask = p_anom >= min(extend_threshold, threshold)
+    d =meta[DIST].to_numpy()
     step = d[1] - d[0]
     max_gap = int(round(max_gap_m / step))
 
@@ -59,18 +67,19 @@ def detect(run: pd.DataFrame, ref: pd.DataFrame, bundle: dict, threshold: float 
             if nxt is None:
                 break
             j = nxt
-        if (j - i + 1) * step >= min_len_m:
+        if (j - i + 1) * step >= min_len_m and core[i:j + 1].any():
             sl = slice(i, j + 1)
             mass = proba[sl].mean(axis=0)
             mass[normal] = 0.0
             typ = int(mass.argmax())
             segments.append({
                 "start_m": float(d[i]), "end_m": float(d[j]),
-                "confidence": round(float(p_anom[sl].mean()), 3),
+                "confidence": round(float(p_anom[sl].max()), 3),  # peak P(anomalous) in the segment
                 "suggested_type": LABELS[typ],  # may be wrong: verify against context
                 "suggested_type_confidence": round(float(mass[typ] / max(mass.sum(), 1e-9)), 3),
                 "evidence": {  # run minus reference over the segment
-                    "speed_delta_ms": round(float(X["d_speed"].iloc[sl].mean()), 2),
+                    "speed_delta_ms": round(float((X["d_speed"] + X["d_speed_trend"]).iloc[sl].mean()), 2),
+                    "local_speed_delta_ms": round(float(X["d_speed"].iloc[sl].mean()), 2),  # minus overall pace gap
                     "throttle_delta": round(float(X["d_throttle"].iloc[sl].mean()), 3),
                     "brake_delta": round(float(X["d_brake"].iloc[sl].mean()), 3),
                     "steer_delta": round(float(X["d_steer"].iloc[sl].mean()), 3),
@@ -87,7 +96,7 @@ def main():
     p.add_argument("--run", required=True, help="telemetry CSV of the lap to analyse")
     p.add_argument("--ref", required=True, help="reference CSV for the same stage")
     p.add_argument("--model-dir", type=Path, default=REPO / "models")
-    p.add_argument("--threshold", type=float, default=0.5, help="min P(anomalous) to flag a sample")
+    p.add_argument("--threshold", type=float, default=0.9, help="min P(anomalous) to flag a sample")
     a = p.parse_args()
     bundle = joblib.load(a.model_dir / "anomaly_model.joblib")
     print(json.dumps(detect(pd.read_csv(a.run), pd.read_csv(a.ref), bundle, a.threshold)))

@@ -12,3 +12,5 @@ CONTEXT.md
 # Generated artifacts (regenerate with build_dataset.py / train.py)
 dat/synthetic/
 models/
+
+dat/real_aug*/

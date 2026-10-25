@@ -12,7 +12,7 @@ import pandas as pd
 from sklearn.model_selection import GroupShuffleSplit
 from sklearn.utils.class_weight import compute_sample_weight
 
-from anomalyDetection.schema import LABELS, TRACK_ID
+from anomalyDetection.schema import LABELS, RUN_ID, TRACK_ID
 from anomalyDetection.training.evaluate import evaluate
 from anomalyDetection.training.features import build_table
 
@@ -44,11 +44,13 @@ def main():
     p.add_argument("--model-dir", type=Path, default=REPO / "models")
     p.add_argument("--backend", choices=["lightgbm", "xgboost"], default="lightgbm")
     p.add_argument("--seed", type=int, default=0)
+    p.add_argument("--split-by", choices=[TRACK_ID, RUN_ID], default=TRACK_ID,
+                   help="use run_id when all runs come from one stage (real-lap data)")
     a = p.parse_args()
 
     runs, refs = pd.read_csv(a.data / "runs.csv"), pd.read_csv(a.data / "references.csv")
     X, y, meta = build_table(runs, refs)
-    groups = meta[TRACK_ID]
+    groups = meta[a.split_by]
 
     # 70 / 15 / 15 by track so no stage appears in more than one split
     rest, test = next(GroupShuffleSplit(1, test_size=0.15, random_state=a.seed).split(X, y, groups))

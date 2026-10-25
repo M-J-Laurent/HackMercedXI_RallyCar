@@ -38,7 +38,24 @@ python -m anomalyDetection.training.evaluate
 python -m anomalyDetection.training.infer --run lap.csv --ref ref.csv
 ```
 
-## Using real recorded laps
+## Training on real laps (what actually works)
+
+The simulated data does not look like real DR2 laps; a model trained only on it flags ~90% of any real lap.
+`generation/real_augment.py` builds training data from the recorded clean laps instead: it blends and pace-warps
+them to cover natural lap-to-lap variation, then edits labelled mistakes into the real channels.
+Features remove the slow pace offset between a lap and the reference, so being generally slower is not a mistake.
+
+```
+python -m anomalyDetection.generation.build_real_dataset --runs 400          # -> dat/real_aug/
+python -m anomalyDetection.training.train --data ../dat/real_aug --split-by run_id
+python -m anomalyDetection.training.evaluate_real --thresholds 0.5 0.7 0.9   # vs dat/real/annotations.json
+```
+
+Honest testing: build with `--range 0 2400` and `--range 2400 4800` into separate `--out` folders, train on each,
+and score each on the half it never saw (`evaluate_real --holdout`). The in-sample accuracy printed by `train.py`
+on this data is meaningless because every variant comes from the same two laps.
+
+## Using real recorded laps (calibrating the simulator)
 
 1. Telemetry CSVs must follow `schema.py` (units and sign conventions are documented there).
 2. Calibrate: `python -m anomalyDetection.generation.calibrate --recorded ../dat/real/lap.csv --surface gravel`

@@ -2,26 +2,15 @@
 import numpy as np
 import pandas as pd
 
-from anomalyDetection.schema import (
-    CHANNELS, DIST, GRID_STEP_M, LABEL_COL, LABELS, RUN_ID, TRACK_ID,
-)
+from anomalyDetection.resample import resample_to_grid
+from anomalyDetection.schema import DIST, LABEL_COL, LABELS, RUN_ID, TRACK_ID
 
 DELTA_CHANNELS = ["speed", "throttle", "brake", "steer", "g_lat", "g_long", "rpm", "gear"]
 RAW_CHANNELS = ["speed", "throttle", "brake", "steer", "g_lat", "g_long"]
 WINDOWED = ["d_speed", "d_throttle", "d_brake", "d_steer", "d_g_lat", "d_gear", "d_rpm", "d_rear_front"]
 WINDOWS = (5, 15)       # samples (x GRID_STEP_M metres)
 SHIFTS = (-10, -5, 5, 10)
-
-
-def resample_to_grid(df: pd.DataFrame, step: float = GRID_STEP_M) -> pd.DataFrame:
-    """Put a lap on a fixed distance grid so runs of different pace line up sample-for-sample."""
-    d = df[DIST].to_numpy()
-    s = np.arange(0, d.max(), step)
-    out = {DIST: s}
-    for c in CHANNELS:
-        out[c] = np.interp(s, d, df[c].to_numpy())
-    out["gear"] = np.rint(out["gear"])
-    return pd.DataFrame(out)
+PACE_WINDOW = 301       # samples (~600 m): slower-than-this offsets count as overall pace, not mistakes
 
 
 def _rear_front(d: pd.DataFrame) -> np.ndarray:
@@ -38,10 +27,16 @@ def build_features(run: pd.DataFrame, ref: pd.DataFrame) -> tuple[pd.DataFrame, 
     f = pd.DataFrame(index=range(n))
     for c in DELTA_CHANNELS:
         f[f"d_{c}"] = r[c] - q[c]
+    # A generally slower (or faster) lap than the reference is pace, not a mistake: keep the
+    # slow trend as its own feature and make the deltas local.
+    trend = f["d_speed"].rolling(PACE_WINDOW, center=True, min_periods=1).median()
+    f["d_speed_trend"] = trend
+    f["d_speed"] = f["d_speed"] - trend
+    f["d_rpm"] = f["d_rpm"] - f["d_rpm"].rolling(PACE_WINDOW, center=True, min_periods=1).median()
     for c in RAW_CHANNELS:
         f[c] = r[c]
         f[f"ref_{c}"] = q[c]
-    f["speed_ratio"] = r.speed / np.maximum(q.speed, 1.0)
+    f["speed_ratio"] = r.speed / np.maximum(q.speed + trend, 1.0)
     f["rear_front"] = _rear_front(r)
     f["d_rear_front"] = f["rear_front"] - _rear_front(q)
     f["front_lr"] = (r.wheel_speed_fr - r.wheel_speed_fl) / np.maximum(r.speed, 1.0)
