@@ -250,3 +250,20 @@ select {
   .hero h1 { font-size: 24px; }
   .stat-value { font-size: 20px; }
 }
+
+/* ---------- AI coach panel (local server mode) ---------- */
+.coach { padding: 14px 18px; }
+.coach-main { display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: center; justify-content: space-between; }
+.coach-text h2 { margin: 0 0 2px; font-size: 16px; }
+.coach-text .note { margin: 0; }
+.coach-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.coach-actions select { padding: 6px 8px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-1); color: inherit; font: inherit; }
+.btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.btn-primary:hover { background: var(--accent); filter: brightness(1.08); }
+.btn[disabled] { opacity: 0.55; cursor: default; }
+a.btn { text-decoration: none; color: inherit; }
+.bar { height: 8px; border-radius: 999px; background: var(--surface-2); margin-top: 12px; overflow: hidden; }
+.bar-fill { height: 100%; width: 0; background: var(--accent); border-radius: 999px; transition: width 0.4s ease; }
+.bar.is-indeterminate .bar-fill { width: 35%; animation: coach-slide 1.2s ease-in-out infinite; }
+@keyframes coach-slide { 0% { margin-left: -35%; } 100% { margin-left: 100%; } }
+@media (prefers-reduced-motion: reduce) { .bar-fill { transition: none; } .bar.is-indeterminate .bar-fill { animation: none; width: 100%; opacity: 0.4; } }

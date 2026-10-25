@@ -35,7 +35,7 @@ def _context(r: pd.DataFrame, q: pd.DataFrame, i: int, j: int, pad_m: float, ste
     grid = r[DIST].iloc[1] - r[DIST].iloc[0]
     pad, every = int(round(pad_m / grid)), max(int(round(step_m / grid)), 1)
     idx = np.arange(max(i - pad, 0), min(j + pad, len(r) - 1) + 1, every)
-    cols = [DIST, *CONTEXT_CHANNELS]
+    cols = [DIST, *CONTEXT_CHANNELS, *(c for c in ("slip_angle_deg",) if c in r.columns)]
     rows = lambda d: d.iloc[idx][cols].round(2).values.tolist()
     return {"step_m": float(every * grid), "columns": cols, "driver": rows(r), "reference": rows(q)}
 

@@ -170,6 +170,7 @@
     state.domain = [0, (state.n - 1) * GRID];
     state.sel = null; state.hover = null;
     renderAll();
+    document.dispatchEvent(new CustomEvent("rally-lap", { detail: { lap: state.lap } }));
   }
 
   function renderAll() {
@@ -200,7 +201,9 @@
       ? "This is the reference lap, so there is nothing to compare. Pick another lap."
       : src === "driver_notes"
         ? "Mistake locations come from the driver's notes; the model's output hasn't been added for this lap yet. Tips are auto-written from the telemetry."
-        : src === "model" ? "Mistakes found by the anomaly model. Tips come from the LLM where available, otherwise they're auto-written from the telemetry."
+        : src === "model" ? (state.segs.some((s) => s.tip_by)
+          ? `Mistakes found by the anomaly model; tips written by ${state.segs.find((s) => s.tip_by).tip_by} running on this computer.`
+          : "Mistakes found by the anomaly model. Tips come from the LLM where available, otherwise they're auto-written from the telemetry.")
         : "";
     if (!state.segs.length) {
       const li = document.createElement("li"); li.className = "empty";
@@ -220,7 +223,7 @@
       const where = el("span", "tip-where", whereText(s.corner, s));
       const text = el("p", "tip-text", s.tip);
       li.append(num, title, loss, where, text);
-      if (typeof s.confidence === "number") li.append(el("span", "tip-src", `${s.source || "model"} · confidence ${Math.round(s.confidence * 100)}%`));
+      if (typeof s.confidence === "number") li.append(el("span", "tip-src", `${s.source || "model"} · confidence ${Math.round(s.confidence * 100)}%${s.tip_by ? " · tip by " + s.tip_by : ""}`));
       li.addEventListener("click", () => selectSeg(i, false));
       li.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); selectSeg(i, false); } });
       ol.append(li);
@@ -536,10 +539,11 @@
   $("uploadLap").addEventListener("change", async (e) => {
     const f = e.target.files[0]; if (!f) return;
     try {
-      const { head, rows } = parseCSV(await f.text());
+      const text = await f.text();
+      const { head, rows } = parseCSV(text);
       for (const need of ["lap_distance", "time", "speed", "throttle", "brake", "steer", "gear"])
         if (!head.includes(need)) throw new Error(`missing column "${need}"`);
-      const lap = { file: f.name, name: f.name.replace(/\.csv$/i, "") + " (uploaded)", trace: resampleRows(rows, head), segments: [], segments_source: null };
+      const lap = { file: f.name, name: f.name.replace(/\.csv$/i, "") + " (uploaded)", trace: resampleRows(rows, head), segments: [], segments_source: null, raw: text };
       state.laps.push(lap); fillLapSelect(); $("lapSelect").value = String(state.laps.length - 1); setLap(state.laps.length - 1);
     } catch (err) { alertMsg(`Couldn't read that CSV: ${err.message}`); }
     e.target.value = "";
@@ -597,6 +601,14 @@
     tr.append(el("td", "", LABELS[k].name), el("td", "", LABELS[k].did), el("td", "", LABELS[k].shows));
     gl.append(tr);
   }
+
+  // ---------------------------------------------------------------- hooks for backend.js (local server mode)
+  window.RallyApp = {
+    state,
+    setLapIndex: (k) => { $("lapSelect").value = String(k); setLap(k); },
+    renderTips,
+    note: alertMsg,
+  };
 
   // ---------------------------------------------------------------- boot
   CHART_SPECS.forEach((s, k) => charts.push(new Chart(s, k === CHART_SPECS.length - 1)));

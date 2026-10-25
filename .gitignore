@@ -11,6 +11,8 @@ CONTEXT.md
 
 # Generated artifacts (regenerate with build_dataset.py / train.py)
 dat/synthetic/
-models/
+# the trained anomaly model is 14 MB and is committed so the server runs without retraining
+models/*
+!models/anomaly_model.joblib
 
 dat/real_aug*/

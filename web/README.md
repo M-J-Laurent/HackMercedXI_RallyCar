@@ -27,7 +27,11 @@ Mistake segments per lap come from, in order:
 
 ## View it locally
 
-Open `web/index.html` in a browser. It works straight from disk because the data is a `<script>`, not a fetch.
+**With the model and AI coach (recommended):** `python server/app.py --open` (see `server/README.md`). Every lap you open is
+analysed live, and an on-device LLM can write the tips; the *AI coach* card downloads that LLM with one click.
+
+**Static only:** open `web/index.html` in a browser. It works straight from disk because the data is a `<script>`, not a fetch.
+`backend.js` notices there is no server and stays out of the way.
 
 ## Host it (GitHub Pages, free)
 
