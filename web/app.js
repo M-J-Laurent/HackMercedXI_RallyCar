@@ -129,32 +129,20 @@
     const label = seg.suggested_type || (seg.rule && seg.rule.label) || null;
     const corner = seg.corner || locate(seg.start_m, seg.end_m);
     const m = { vMin, vRefMin, slipMax, earlyBrake, lift, lost, corner };
-    return { ...seg, label, lost, corner, metrics: m, tip: seg.tip || makeTip(label, m, seg) };
+    return { ...seg, label, lost, corner, metrics: m, tip: seg.tip || null, facts: makeFacts(label, m, seg) };
   }
 
-  function makeTip(label, m, seg) {
-    const at = cornerPhrase(m.corner);
-    const dv = Math.round(m.vRefMin - m.vMin);
-    const g = seg.evidence && seg.evidence.gear_delta;
-    switch (label) {
-      case "braked_too_early": return `You got on the brakes too early${at}. Brake later and carry more speed in; the reference was ${dv} km/h faster at the slowest point.`;
-      case "braked_too_late": return `Too much speed into the braking zone${at}: you overshot and had to scrub speed. Brake a little earlier so you can get back on the power sooner.`;
-      case "lifted_mid_corner": return `You came off the throttle mid-corner${at}. Hold a steady part-throttle to keep the car balanced.`;
-      case "late_throttle": return `You waited too long to get back on the power after the apex${at}. Start feeding in throttle as soon as the car is pointed at the exit.`;
-      case "oversteer": return `The rear stepped out${at} (slide angle up to ${Math.round(m.slipMax)}°). Smoother throttle and a little less entry speed keep the car straighter.`;
-      case "understeer": return `The front washed wide${at}. Slow down a bit more before turning in instead of adding steering.`;
-      case "wrong_gear": return `You were a gear ${g > 0 ? "higher" : "lower"} than the reference${at}. Match the gear to the speed for better drive.`;
-      case "spinout": return `You spun${at} and lost ${Math.abs(m.lost).toFixed(1)} s. Back off the entry speed here until the line feels comfortable.`;
-      case "collision": return `You hit something${at}. A slower, tidier line through here is worth more than the risk.`;
-      default: {
-        const bits = [];
-        if (m.earlyBrake) bits.push("you were braking where the reference wasn't");
-        if (m.lift) bits.push("you were off the throttle where the reference was flat out");
-        if (m.slipMax > 25) bits.push(`the car was sliding (up to ${Math.round(m.slipMax)}°)`);
-        const why = bits.length ? ` Here ${bits.join(", and ")}.` : "";
-        return `You lost ${Math.abs(m.lost).toFixed(1)} s${at}. Your slowest speed was ${Math.round(m.vMin)} km/h against ${Math.round(m.vRefMin)} km/h on the reference.${why}`;
-      }
-    }
+  // What the model found, as plain numbers. No advice: written coaching only ever comes from the LLM.
+  function makeFacts(label, m, seg) {
+    if (Array.isArray(seg.facts) && seg.facts.length) return seg.facts.join(" ");  // measurements from the analysis itself
+    const parts = [];
+    const len = Math.round(seg.end_m - seg.start_m);
+    parts.push(`Flagged over ${len} m. Cost ${fmtSigned(m.lost, "s")} against the reference.`);
+    if (isFinite(m.vMin) && isFinite(m.vRefMin)) parts.push(`Slowest speed ${Math.round(m.vMin)} km/h; the reference was at ${Math.round(m.vRefMin)} km/h at its slowest here.`);
+    if (m.slipMax > 25) parts.push(`Slide angle reached ${Math.round(m.slipMax)}°.`);
+    const r = seg.rule;
+    if (r) parts.push(`Engine stalled for ${r.stall_s} s; speed fell from ${r.speed_before_kmh} to ${r.speed_min_kmh} km/h (peak ${r.peak_decel_g} g, brake ${Math.round(r.max_brake * 100)}%).`);
+    return parts.join(" ");
   }
 
   // ---------------------------------------------------------------- lap selection
@@ -170,6 +158,7 @@
     state.domain = [0, (state.n - 1) * GRID];
     state.sel = null; state.hover = null;
     renderAll();
+    document.dispatchEvent(new CustomEvent("rally-lap", { detail: { lap: state.lap } }));
   }
 
   function renderAll() {
@@ -196,15 +185,16 @@
   function renderTips() {
     const ol = $("tips"); ol.replaceChildren();
     const src = state.lap.segments_source;
+    const llmBy = state.segs.find((s) => s.tip_by);
     $("sourceNote").textContent = state.lap === state.ref
       ? "This is the reference lap, so there is nothing to compare. Pick another lap."
-      : src === "driver_notes"
-        ? "Mistake locations come from the driver's notes; the model's output hasn't been added for this lap yet. Tips are auto-written from the telemetry."
-        : src === "model" ? "Mistakes found by the anomaly model. Tips come from the LLM where available, otherwise they're auto-written from the telemetry."
-        : "";
+      : src === "model" ? (llmBy
+          ? `Mistakes found by the anomaly model; tips written by ${llmBy.tip_by} running on this computer.`
+          : "Mistakes found by the anomaly model. The numbers below are the model's output; written coaching needs the AI coach (run the local server and click Install / Download in the AI coach card).")
+        : "No model results for this lap yet. Run python server/app.py (analyses it live) or python web/build_data.py --infer.";
     if (!state.segs.length) {
       const li = document.createElement("li"); li.className = "empty";
-      li.textContent = state.lap === state.ref ? "Reference lap" : "No mistakes found on this lap. Clean run!";
+      li.textContent = state.lap === state.ref ? "Reference lap" : state.lap.segments_source === "model" ? "The model found no mistakes on this lap." : "Not analysed yet.";
       ol.append(li); return;
     }
     const order = state.segs.map((s, i) => i);
@@ -218,9 +208,9 @@
       const title = el("span", "tip-title", s.label && LABELS[s.label] ? LABELS[s.label].name : "Time lost");
       const loss = el("span", "tip-loss " + (s.lost > 0 ? "loss" : "gain"), fmtSigned(s.lost));
       const where = el("span", "tip-where", whereText(s.corner, s));
-      const text = el("p", "tip-text", s.tip);
+      const text = el("p", "tip-text" + (s.tip ? "" : " is-facts"), s.tip || s.facts);
       li.append(num, title, loss, where, text);
-      if (typeof s.confidence === "number") li.append(el("span", "tip-src", `${s.source || "model"} · confidence ${Math.round(s.confidence * 100)}%`));
+      if (typeof s.confidence === "number") li.append(el("span", "tip-src", `${s.source || "model"} · confidence ${Math.round(s.confidence * 100)}%${s.tip_by ? " · tip by " + s.tip_by : ""}`));
       li.addEventListener("click", () => selectSeg(i, false));
       li.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); selectSeg(i, false); } });
       ol.append(li);
@@ -252,19 +242,14 @@
   }
 
   class Chart {
-    constructor(spec) {
-      this.spec = spec; this.isLast = true; // every panel gets its own distance axis
-      const wrap = document.createElement("section"); wrap.className = "chart";
-      wrap.hidden = !spec.show;
-      const head = document.createElement("div"); head.className = "chart-head";
-      head.append(el("h3", "chart-title", spec.title));
-      if (spec.unit) head.append(el("span", "chart-unit", spec.unit));
-      wrap.append(head, el("p", "chart-desc", spec.desc));
+    constructor(spec, isLast) {
+      this.spec = spec; this.isLast = isLast;
+      const wrap = document.createElement("div"); wrap.className = "chart";
+      wrap.append(el("div", "chart-title", spec.title));
       this.canvas = document.createElement("canvas");
-      this.canvas.setAttribute("role", "img"); this.canvas.setAttribute("aria-label", `${spec.title}: ${spec.desc}`);
+      this.canvas.setAttribute("role", "img"); this.canvas.setAttribute("aria-label", spec.title);
       wrap.append(this.canvas); $("charts").append(wrap);
-      this.wrap = wrap;
-      this.pad = { l: 44, r: 10, t: 8, b: 22 };
+      this.pad = { l: 44, r: 10, t: 6, b: isLast ? 22 : 6 };
       this.h = spec.h + this.pad.t + this.pad.b;
       this.canvas.style.height = this.h + "px";
       new ResizeObserver(() => this.draw()).observe(this.canvas);
@@ -328,13 +313,9 @@
         const arr = s.arr(); if (!arr) continue;
         g.strokeStyle = css(s.color); g.lineWidth = s.width || 2; g.lineJoin = "round"; g.beginPath();
         let started = false;
-        let py = null;
         for (let i = Math.max(0, i0 - 1); i <= Math.min(state.n - 1, i1 + 1); i++) {
           const x = this.xOf(i * GRID), y = yOf(arr[i]);
-          if (!started) { g.moveTo(x, y); started = true; }
-          else if (this.spec.step) { g.lineTo(x, py); g.lineTo(x, y); }
-          else g.lineTo(x, y);
-          py = y;
+          if (!started) { g.moveTo(x, y); started = true; } else g.lineTo(x, y);
         }
         g.stroke();
       }
@@ -383,23 +364,13 @@
   const you = (k) => () => state.lap && state.lap.trace[k];
   const ref = (k) => () => state.ref && state.ref.trace[k];
   const pct = (v) => Math.round(v * 100) + "%";
-  const both = (k) => [{ arr: you(k), color: "--you" }, { arr: ref(k), color: "--ref", width: 1.5 }];
   const CHART_SPECS = [
-    { id: "gap", title: "Time gap", unit: "seconds", show: true, h: 120, zero: true,
-      desc: "How far behind (+) or ahead (−) of the reference you are. Where the line climbs, you're losing time.",
-      series: [{ arr: () => state.gap, color: "--you" }] },
-    { id: "speed", title: "Speed", unit: "km/h", show: true, h: 170, series: both("v"),
-      desc: "Where the blue line dips below the orange one, you were slower than the reference." },
-    { id: "throttle", title: "Throttle", unit: "% pressed", show: true, h: 90, domain: [-0.05, 1.05], tick: pct, series: both("thr"),
-      desc: "How far the gas pedal was pressed. Gaps in blue where orange is at 100% = time you could be flat out." },
-    { id: "brake", title: "Brake", unit: "% pressed", show: true, h: 90, domain: [-0.05, 1.05], tick: pct, series: both("brk"),
-      desc: "How hard you braked. A blue spike before the orange one means you braked earlier than the reference." },
-    { id: "gear", title: "Gear", unit: "gear", show: false, h: 90, step: true, series: both("gear"),
-      desc: "Which gear you were in. A different gear from the reference at the same spot can cost drive." },
-    { id: "steer", title: "Steering", unit: "left is up", show: false, h: 100, domain: [-1.05, 1.05], series: both("str"),
-      desc: "Steering input. Quick swings from one side to the other usually mean you were catching a slide." },
-    { id: "slip", title: "Slide angle", unit: "degrees", show: true, h: 110, zero: true, series: both("slip"),
-      desc: "How sideways the car is. Near 0 = going where it points. Big numbers = sliding (the bigger, the more time it costs)." },
+    { title: "Time gap to reference (s) · above 0 = behind", h: 90, zero: true, series: [{ arr: () => state.gap, color: "--you" }] },
+    { title: "Speed (km/h)", h: 150, series: [{ arr: you("v"), color: "--you" }, { arr: ref("v"), color: "--ref", width: 1.5 }] },
+    { title: "Throttle", h: 60, domain: [-0.05, 1.05], tick: pct, series: [{ arr: you("thr"), color: "--you" }, { arr: ref("thr"), color: "--ref", width: 1.5 }] },
+    { title: "Brake", h: 60, domain: [-0.05, 1.05], tick: pct, series: [{ arr: you("brk"), color: "--you" }, { arr: ref("brk"), color: "--ref", width: 1.5 }] },
+    { title: "Steering · positive = left", h: 70, domain: [-1.05, 1.05], series: [{ arr: you("str"), color: "--you" }, { arr: ref("str"), color: "--ref", width: 1.5 }] },
+    { title: "Slide angle (°) · how sideways the car is, positive = nose left of travel", h: 80, zero: true, series: [{ arr: you("slip"), color: "--you" }, { arr: ref("slip"), color: "--ref", width: 1.5 }] },
   ];
   let charts = [];
 
@@ -555,10 +526,11 @@
   $("uploadLap").addEventListener("change", async (e) => {
     const f = e.target.files[0]; if (!f) return;
     try {
-      const { head, rows } = parseCSV(await f.text());
+      const text = await f.text();
+      const { head, rows } = parseCSV(text);
       for (const need of ["lap_distance", "time", "speed", "throttle", "brake", "steer", "gear"])
         if (!head.includes(need)) throw new Error(`missing column "${need}"`);
-      const lap = { file: f.name, name: f.name.replace(/\.csv$/i, "") + " (uploaded)", trace: resampleRows(rows, head), segments: [], segments_source: null };
+      const lap = { file: f.name, name: f.name.replace(/\.csv$/i, "") + " (uploaded)", trace: resampleRows(rows, head), segments: [], segments_source: null, raw: text };
       state.laps.push(lap); fillLapSelect(); $("lapSelect").value = String(state.laps.length - 1); setLap(state.laps.length - 1);
     } catch (err) { alertMsg(`Couldn't read that CSV: ${err.message}`); }
     e.target.value = "";
@@ -617,20 +589,16 @@
     gl.append(tr);
   }
 
+  // ---------------------------------------------------------------- hooks for backend.js (local server mode)
+  window.RallyApp = {
+    state,
+    setLapIndex: (k) => { $("lapSelect").value = String(k); setLap(k); },
+    renderTips,
+    note: alertMsg,
+  };
+
   // ---------------------------------------------------------------- boot
-  CHART_SPECS.forEach((s) => charts.push(new Chart(s)));
-  // chart on/off toggles
-  const tg = $("chartToggles");
-  charts.forEach((c) => {
-    const b = el("button", "chip" + (c.spec.show ? " is-active" : ""), c.spec.title);
-    b.type = "button"; b.setAttribute("aria-pressed", String(c.spec.show));
-    b.addEventListener("click", () => {
-      const on = c.wrap.hidden; c.wrap.hidden = !on;
-      b.classList.toggle("is-active", on); b.setAttribute("aria-pressed", String(on));
-      if (on) requestAnimationFrame(() => c.draw());
-    });
-    tg.append(b);
-  });
+  CHART_SPECS.forEach((s, k) => charts.push(new Chart(s, k === CHART_SPECS.length - 1)));
   showView(location.hash === "#about" ? "about" : "analysis");
   if (!state.laps.length) {
     $("sourceNote").textContent = "No data bundled yet. Run  python web/build_data.py  or load a lap CSV above.";
