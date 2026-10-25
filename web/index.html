@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Rally Coach</title>
+  <meta name="description" content="Post-stage coaching for DiRT Rally 2.0: your lap vs a reference lap, mistakes found by an ML model, explained in plain English.">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true"></span>
+      <span class="brand-name">Rally Coach</span>
+      <span class="brand-sub">HackMerced XI</span>
+    </div>
+    <nav class="tabs" role="tablist">
+      <button class="tab is-active" data-view="analysis" role="tab" aria-selected="true">Lap analysis</button>
+      <button class="tab" data-view="about" role="tab" aria-selected="false">How it works</button>
+    </nav>
+    <button id="themeToggle" class="icon-btn" aria-label="Toggle dark mode" title="Toggle dark mode"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 0 0 18z" fill="currentColor"/></svg></button>
+  </header>
+
+  <!-- ================= LAP ANALYSIS ================= -->
+  <main id="view-analysis" class="view">
+    <section class="controls" aria-label="Lap selection">
+      <label class="field">
+        <span class="field-label">Lap</span>
+        <select id="lapSelect"></select>
+      </label>
+      <div class="field">
+        <span class="field-label">Compared with</span>
+        <span id="refName" class="field-value">–</span>
+      </div>
+      <label class="field">
+        <span class="field-label">Color the map by</span>
+        <select id="mapMode">
+          <option value="gap">Time gained / lost</option>
+          <option value="speed">Speed</option>
+        </select>
+      </label>
+      <div class="field upload">
+        <span class="field-label">Your own data</span>
+        <div class="upload-row">
+          <label class="btn btn-ghost">Lap CSV<input id="uploadLap" type="file" accept=".csv" hidden></label>
+          <label class="btn btn-ghost">Analysis JSON<input id="uploadJson" type="file" accept=".json" hidden></label>
+        </div>
+      </div>
+    </section>
+
+    <section class="stats" aria-label="Lap summary">
+      <div class="stat"><span class="stat-label">Stage time</span><span id="stTime" class="stat-value">–</span></div>
+      <div class="stat"><span class="stat-label">Reference</span><span id="stRef" class="stat-value">–</span></div>
+      <div class="stat"><span class="stat-label">Gap</span><span id="stGap" class="stat-value">–</span></div>
+      <div class="stat"><span class="stat-label">Mistakes found</span><span id="stCount" class="stat-value">–</span></div>
+      <div class="stat"><span class="stat-label">Biggest loss</span><span id="stWorst" class="stat-value stat-small">–</span></div>
+    </section>
+
+    <section class="grid-main">
+      <article class="card map-card">
+        <header class="card-head">
+          <h2>Stage map</h2>
+          <span id="stageName" class="muted"></span>
+        </header>
+        <div class="map-wrap"><canvas id="map" aria-label="Stage map"></canvas></div>
+        <div id="mapLegend" class="map-legend"></div>
+      </article>
+
+      <article class="card tips-card">
+        <header class="card-head">
+          <h2>Coaching</h2>
+          <div class="seg-toggle" role="group" aria-label="Sort tips">
+            <button class="chip is-active" data-sort="distance">In order</button>
+            <button class="chip" data-sort="loss">Biggest loss</button>
+          </div>
+        </header>
+        <p id="sourceNote" class="note"></p>
+        <ol id="tips" class="tips"></ol>
+      </article>
+    </section>
+
+    <article class="card charts-card">
+      <header class="card-head">
+        <h2>Telemetry vs reference</h2>
+        <div class="legend" aria-label="Legend">
+          <span class="key"><i class="key-line you"></i>You</span>
+          <span class="key"><i class="key-line ref"></i>Reference</span>
+          <span class="key"><i class="key-box mistake"></i>Mistake</span>
+        </div>
+        <div class="chart-actions">
+          <span class="muted hint">Drag across a chart to zoom</span>
+          <button id="resetZoom" class="btn btn-ghost">Full stage</button>
+        </div>
+      </header>
+      <div id="charts" class="charts"></div>
+      <div id="tooltip" class="tooltip" role="status" hidden></div>
+    </article>
+  </main>
+
+  <!-- ================= HOW IT WORKS ================= -->
+  <main id="view-about" class="view" hidden>
+    <section class="hero">
+      <h1>Find out where you lost time in a rally stage, and why.</h1>
+      <p class="lede">Rally Coach records your DiRT Rally 2.0 telemetry, compares it metre by metre against a
+        reference lap of the same stage, uses a machine-learning model to find the mistakes, and explains each one
+        in plain English.</p>
+    </section>
+
+    <section class="card">
+      <h2>The pipeline</h2>
+      <ol class="pipeline">
+        <li><b>Capture</b><span>The game streams 66 values ~60 times a second over UDP. A Python logger saves every packet.</span></li>
+        <li><b>Clean</b><span>Laps are cut at the start and finish, restarts and reverse gear are removed, signs are calibrated, and slide angle / yaw rate are derived.</span></li>
+        <li><b>Compare</b><span>Your lap and the reference are resampled to the same distance grid, so every metre of the stage lines up.</span></li>
+        <li><b>Detect</b><span>A LightGBM model trained on physics-generated laps (plus rules for spins and crashes) flags where you went wrong.</span></li>
+        <li><b>Explain</b><span>An LLM turns each flagged segment into one short coaching tip, using only the numbers it was given.</span></li>
+      </ol>
+    </section>
+
+    <section class="card">
+      <h2>Mistakes it looks for</h2>
+      <div class="table-wrap">
+        <table class="glossary">
+          <thead><tr><th>Mistake</th><th>What you did</th><th>What the data shows</th></tr></thead>
+          <tbody id="glossary"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>What we record</h2>
+      <div class="data-groups">
+        <div><h3>Driver inputs</h3><p>Throttle, brake, clutch, steering, gear</p></div>
+        <div><h3>Car motion</h3><p>Speed, position, velocity, orientation, lateral and longitudinal g, slide angle, yaw rate</p></div>
+        <div><h3>Wheels &amp; chassis</h3><p>Wheel speed and wheelspin per wheel, suspension travel and speed per wheel, brake temperatures</p></div>
+        <div><h3>Engine</h3><p>RPM, max and idle RPM, gear count</p></div>
+        <div><h3>Stage</h3><p>Distance from start, stage time, sector and sector times, stage length</p></div>
+        <div><h3>Stage map</h3><p>Corners found from the driven path: number, direction, tightness, apex speed</p></div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>The team</h2>
+      <ul class="team">
+        <li><b>Telemetry capture</b><span>Angel: UDP logger, cleaning, calibration, recorded laps</span></li>
+        <li><b>Mistake detection</b><span>Jay: synthetic data, physics model, anomaly model, stage map</span></li>
+        <li><b>Coaching + interface</b><span>Teammate B: LLM explanations, this site</span></li>
+      </ul>
+    </section>
+  </main>
+
+  <footer class="foot muted">Rally Coach · HackMerced XI · Data from DiRT Rally 2.0 UDP telemetry</footer>
+
+  <script src="data/bundle.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
